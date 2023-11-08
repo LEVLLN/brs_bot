@@ -33,51 +33,42 @@ pub struct MessageBase {
     pub forward_from_chat: Option<Chat>,
 }
 
-
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-pub enum Message {
+pub enum MessageExt {
     Photo {
-        #[serde(flatten)]
-        base: MessageBase,
         photo: Vec<Content>,
         caption: Option<String>,
     },
     Text {
-        #[serde(flatten)]
-        base: MessageBase,
         text: String,
     },
     Video {
-        #[serde(flatten)]
-        base: MessageBase,
         video: Content,
         caption: Option<String>,
     },
     Voice {
-        #[serde(flatten)]
-        base: MessageBase,
         voice: Content,
         caption: Option<String>,
     },
     VideoNote {
-        #[serde(flatten)]
-        base: MessageBase,
         video_note: Content,
     },
     Sticker {
-        #[serde(flatten)]
-        base: MessageBase,
         sticker: Content,
     },
     Animation {
-        #[serde(flatten)]
-        base: MessageBase,
         animation: Content,
         caption: Option<String>,
     },
 }
-
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct Message {
+    #[serde(flatten)]
+    pub base: MessageBase,
+    #[serde(flatten)]
+    pub ext: MessageExt
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
