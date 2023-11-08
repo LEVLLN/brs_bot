@@ -1,0 +1,23 @@
+{
+  "update_id": 959895780,
+  "message": {
+    "message_id": 104040,
+    "from": {
+      "id": 211382611,
+      "is_bot": false,
+      "first_name": "FirstName",
+      "last_name": "LastName",
+      "username": "UserName",
+      "language_code": "en"
+    },
+    "chat": {
+      "id": 211382611,
+      "first_name": "FirstName",
+      "last_name": "LastName",
+      "username": "UserName",
+      "type": "private"
+    },
+    "date": 1699397266,
+    "text": "my_default_text_message"
+  }
+}

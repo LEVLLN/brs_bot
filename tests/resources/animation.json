@@ -1,0 +1,67 @@
+{
+  "update_id": 959895793,
+  "message": {
+    "message_id": 104043,
+    "from": {
+      "id": 211382611,
+      "is_bot": false,
+      "first_name": "FirstName",
+      "last_name": "LastName",
+      "username": "UserName",
+      "language_code": "en"
+    },
+    "chat": {
+      "id": 211382611,
+      "first_name": "FirstName",
+      "last_name": "LastName",
+      "username": "UserName",
+      "type": "private"
+    },
+    "date": 1699406048,
+    "animation": {
+      "file_name": "scrubs-dr-perrycox.mp4",
+      "mime_type": "video/mp4",
+      "duration": 2,
+      "width": 220,
+      "height": 220,
+      "thumbnail": {
+        "file_id": "AAMCBAADGQEAAQGWa2VK4OC51LSsD14hHKwTDpeeibcRAAIMAwAC5O4NUyOsp4F0bTr0AQAHbQADMwQ",
+        "file_unique_id": "AQADDAMAAuTuDVNy",
+        "file_size": 7292,
+        "width": 220,
+        "height": 220
+      },
+      "thumb": {
+        "file_id": "AAMCBAADGQEAAQGWa2VK4OC51LSsD14hHKwTDpeeibcRAAIMAwAC5O4NUyOsp4F0bTr0AQAHbQADMwQ",
+        "file_unique_id": "AQADDAMAAuTuDVNy",
+        "file_size": 7292,
+        "width": 220,
+        "height": 220
+      },
+      "file_id": "CgACAgQAAxkBAAEBlmtlSuDgudS0rA9eIRysEw6Xnom3EQACDAMAAuTuDVMjrKeBdG069DME",
+      "file_unique_id": "AgADDAMAAuTuDVM",
+      "file_size": 49283
+    },
+    "document": {
+      "file_name": "scrubs-dr-perrycox.mp4",
+      "mime_type": "video/mp4",
+      "thumbnail": {
+        "file_id": "AAMCBAADGQEAAQGWa2VK4OC51LSsD14hHKwTDpeeibcRAAIMAwAC5O4NUyOsp4F0bTr0AQAHbQADMwQ",
+        "file_unique_id": "AQADDAMAAuTuDVNy",
+        "file_size": 7292,
+        "width": 220,
+        "height": 220
+      },
+      "thumb": {
+        "file_id": "AAMCBAADGQEAAQGWa2VK4OC51LSsD14hHKwTDpeeibcRAAIMAwAC5O4NUyOsp4F0bTr0AQAHbQADMwQ",
+        "file_unique_id": "AQADDAMAAuTuDVNy",
+        "file_size": 7292,
+        "width": 220,
+        "height": 220
+      },
+      "file_id": "CgACAgQAAxkBAAEBlmtlSuDgudS0rA9eIRysEw6Xnom3EQACDAMAAuTuDVMjrKeBdG069DME",
+      "file_unique_id": "AgADDAMAAuTuDVM",
+      "file_size": 49283
+    }
+  }
+}
