@@ -2,6 +2,7 @@ use actix_web::{App, HttpServer};
 
 mod server;
 mod telegram;
+mod services;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
