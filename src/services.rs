@@ -1,2 +1,2 @@
-pub mod text_helper;
+pub mod lexer;
 pub mod commands;
