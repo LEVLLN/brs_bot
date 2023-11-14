@@ -67,12 +67,15 @@ impl MessageExt {
     pub fn raw_text(&self) -> Option<&str> {
         use MessageExt::*;
         match &self {
-            Photo { caption, .. } | Video { caption, .. } | Voice { caption, .. } | Animation { caption, .. } => match caption {
+            Photo { caption, .. }
+            | Video { caption, .. }
+            | Voice { caption, .. }
+            | Animation { caption, .. } => match caption {
                 None => None,
-                Some(caption_text) => Some(caption_text)
+                Some(caption_text) => Some(caption_text),
             },
             Text { text, .. } => Some(text),
-            VideoNote { .. } | Sticker { .. } => None
+            VideoNote { .. } | Sticker { .. } => None,
         }
     }
 }
@@ -105,7 +108,10 @@ impl MessageRequest {
     }
 
     pub fn reply(&self) -> Option<&Message> {
-        if let MessageRequest::Replied { reply_to_message, .. } = &self {
+        if let MessageRequest::Replied {
+            reply_to_message, ..
+        } = &self
+        {
             Some(reply_to_message)
         } else {
             None
@@ -116,10 +122,15 @@ impl MessageRequest {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum WebhookRequest {
-    Edited { update_id: u32, edited_message: MessageRequest },
-    Origin { update_id: u32, message: MessageRequest },
+    Edited {
+        update_id: u32,
+        edited_message: MessageRequest,
+    },
+    Origin {
+        update_id: u32,
+        message: MessageRequest,
+    },
 }
-
 
 impl WebhookRequest {
     pub fn any_message_request(&self) -> &MessageRequest {
