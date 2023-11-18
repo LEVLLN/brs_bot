@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use strum_macros::EnumIter;
 
 use crate::services::lexer::{tokenize, Token};
@@ -15,21 +13,6 @@ pub enum Command {
     Who,
     GetAnswerChance,
     SetAnswerChance,
-}
-
-impl FromStr for Command {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "хелп" | "help" | "помощь" => Ok(Command::Help),
-            "кто" | "who" => Ok(Command::Who),
-            "процент срабатывания" | "процент" => {
-                Ok(Command::SetAnswerChance)
-            }
-            _ => Err(()),
-        }
-    }
 }
 
 impl<'a> TryFrom<Vec<Token<'a>>> for Command {
