@@ -81,7 +81,7 @@ impl MessageExt {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct Message {
+pub struct MessagePart {
     #[serde(flatten)]
     pub base: MessageBase,
     #[serde(flatten)]
@@ -89,51 +89,29 @@ pub struct Message {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(untagged)]
-pub enum MessageRequest {
-    Replied {
-        #[serde(flatten)]
-        message: Message,
-        reply_to_message: Message,
-    },
-    Common(Message),
+pub struct Message {
+    #[serde(flatten)]
+    pub direct: MessagePart,
+    #[serde(alias = "reply_to_message")]
+    pub reply: Option<MessagePart>,
 }
 
-impl MessageRequest {
-    pub fn direct(&self) -> &Message {
-        match self {
-            MessageRequest::Common(message) => message,
-            MessageRequest::Replied { message, .. } => message,
-        }
-    }
-
-    pub fn reply(&self) -> Option<&Message> {
-        if let MessageRequest::Replied {
-            reply_to_message, ..
-        } = &self
-        {
-            Some(reply_to_message)
-        } else {
-            None
-        }
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum WebhookRequest {
     Edited {
         update_id: u32,
-        edited_message: MessageRequest,
+        edited_message: Message,
     },
     Origin {
         update_id: u32,
-        message: MessageRequest,
+        message: Message,
     },
 }
 
 impl WebhookRequest {
-    pub fn any_message_request(&self) -> &MessageRequest {
+    pub fn any_message(&self) -> &Message {
         match self {
             WebhookRequest::Edited { edited_message, .. } => edited_message,
             WebhookRequest::Origin { message, .. } => message,

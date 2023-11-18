@@ -1,3 +1,5 @@
+use unicase::UniCase;
+
 use Token::Text;
 
 #[derive(Copy, Clone, Debug)]
@@ -9,7 +11,7 @@ pub enum Token<'a> {
 impl<'a> PartialEq for Token<'a> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (&Text(a), &Text(b)) => a.to_lowercase() == b.to_lowercase(),
+            (&Text(a), &Text(b)) => UniCase::new(a) == UniCase::new(b),
             (&Token::Newline, &Token::Newline) => true,
             _ => false,
         }
