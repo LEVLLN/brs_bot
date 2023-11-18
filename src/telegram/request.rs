@@ -70,10 +70,7 @@ impl MessageExt {
             Photo { caption, .. }
             | Video { caption, .. }
             | Voice { caption, .. }
-            | Animation { caption, .. } => match caption {
-                None => None,
-                Some(caption_text) => Some(caption_text),
-            },
+            | Animation { caption, .. } => caption.as_deref(),
             Text { text, .. } => Some(text),
             VideoNote { .. } | Sticker { .. } => None,
         }
@@ -91,22 +88,22 @@ pub struct MessageBody {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Message {
-    Common {
+    Common{
         #[serde(flatten)]
-        direct: MessageBody,
+        direct: MessageBody
     },
-    Replied {
+    Replied{
         #[serde(flatten)]
         direct: MessageBody,
         #[serde(alias = "reply_to_message")]
         reply: MessageBody,
-    },
+    }
 }
 
 impl Message {
     pub fn direct(&self) -> &MessageBody {
         match &self {
-            Message::Common { direct } | Message::Replied { direct, .. } => direct,
+            Message::Common {direct} | Message::Replied {direct, ..} => direct
         }
     }
 }

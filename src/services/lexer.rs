@@ -41,62 +41,51 @@ mod tests {
 
     #[test]
     fn test_text_equals() {
-        assert_eq!(Text("строкА"), Text("Строка"));
+        for (left_eq, right_eq) in [
+            (Text("строкА"), Text("Строка")),
+            (Text("строка"), Text("СТРОКА")),
+            (Text("строка"), Text("строка")),
+            (Text("string"), Text("STRING")),
+            (Text("strinG"), Text("String")),
+            (Text("string"), Text("string")),
+        ] {
+            assert_eq!(left_eq, right_eq);
+        }
     }
 
     #[test]
-    fn test_simple_str() {
-        assert_eq!(tokenize("some_str"), [Text("some_str")]);
-    }
-
-    #[test]
-    fn test_two_str() {
-        assert_eq!(
-            tokenize("some_str some_another_str"),
-            [Text("some_str"), Text("some_another_str")]
-        );
-    }
-
-    #[test]
-    fn test_carriage_str() {
-        assert_eq!(
-            tokenize("some_str\rsome_another_str"),
-            [Text("some_str"), Text("some_another_str")]
-        )
-    }
-
-    #[test]
-    fn test_simple_new_line() {
-        assert_eq!(
-            tokenize("some_str \n some_another_str"),
-            [Text("some_str"), Newline, Text("some_another_str")]
-        );
-    }
-
-    #[test]
-    fn test_ends_new_line() {
-        assert_eq!(
-            tokenize("some_str\n \n some_another_str"),
-            [Text("some_str"), Newline, Newline, Text("some_another_str")]
-        );
-    }
-
-    #[test]
-    fn test_starts_new_line() {
-        assert_eq!(
-            tokenize("\nsome_str\n \n some_another_str"),
-            [
-                Newline,
-                Text("some_str"),
-                Newline,
-                Newline,
-                Text("some_another_str")
-            ]
-        );
-    }
-
-    #[test]
-    fn test_empty_str() {
-        assert_eq!(tokenize(""), [])
+    fn test_tokenize() {
+        for (input, output) in [
+            ("some_str", vec![Text("some_str")]),
+            (
+                "some_str some_another_str",
+                vec![Text("some_str"), Text("some_another_str")],
+            ),
+            (
+                "some_str\rsome_another_str",
+                vec![Text("some_str"), Text("some_another_str")],
+            ),
+            (
+                "some_str \n some_another_str",
+                vec![Text("some_str"), Newline, Text("some_another_str")],
+            ),
+            (
+                "some_str\n \n some_another_str",
+                vec![Text("some_str"), Newline, Newline, Text("some_another_str")],
+            ),
+            (
+                "\nsome_str\n \n some_another_str",
+                vec![
+                    Newline,
+                    Text("some_str"),
+                    Newline,
+                    Newline,
+                    Text("some_another_str"),
+                ],
+            ),
+            ("", vec![]),
+        ] {
+            assert_eq!(tokenize(input), output);
+        }
     }
 }

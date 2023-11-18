@@ -1,7 +1,7 @@
 use strum_macros::EnumIter;
 
 use crate::services::lexer::{tokenize, Token};
-use crate::telegram::request::{WebhookRequest};
+use crate::telegram::request::WebhookRequest;
 
 // TODO: Перенести из проекта bread_bot все команды в структуру Command.
 // Задуматься над хранением внутри экземпляров Enum-а дополнительный тип CommandProperty
@@ -99,85 +99,53 @@ mod tests {
     }
 
     #[test]
-    fn test_command_set() {
-        assert_eq!(
-            to_command(build_webhook_request(text_ext("хлеб кто булочка?"))),
-            Some(Command::Who),
-        );
-        assert_eq!(
-            to_command(build_webhook_request(caption_ext(Some(
-                "хлеб who булочка?".to_string()
-            )))),
-            Some(Command::Who),
-        );
-        assert_eq!(
-            to_command(build_webhook_request(text_ext("хлеб процент срабатывания"))),
-            Some(Command::GetAnswerChance),
-        );
-        assert_eq!(
-            to_command(build_webhook_request(caption_ext(Some(
-                "хлеб процент".to_string()
-            )))),
-            Some(Command::GetAnswerChance),
-        );
-        assert_eq!(
-            to_command(build_webhook_request(text_ext(
-                "хлеб процент срабатывания 10"
-            ))),
-            Some(Command::SetAnswerChance),
-        );
-        assert_eq!(
-            to_command(build_webhook_request(caption_ext(Some(
-                "хлеб процент 10".to_string()
-            )))),
-            Some(Command::SetAnswerChance),
-        );
-    }
-
-    #[test]
-    fn test_command_empty_text() {
-        assert_eq!(to_command(build_webhook_request(text_ext(""))), None);
-    }
-
-    #[test]
-    fn test_command_wrong_text() {
-        assert_eq!(
-            to_command(build_webhook_request(text_ext("some wrong text"))),
-            None
-        );
-    }
-
-    #[test]
-    fn test_command_only_bot_name() {
-        assert_eq!(to_command(build_webhook_request(text_ext("хлеб"))), None);
-        assert_eq!(
-            to_command(build_webhook_request(caption_ext(Some("хлеб".to_string())))),
-            None
-        );
-    }
-    #[test]
-    fn test_caption_is_none() {
-        assert_eq!(to_command(build_webhook_request(caption_ext(None))), None);
-    }
-
-    #[test]
-    fn test_caption_is_empty() {
-        assert_eq!(
-            to_command(build_webhook_request(caption_ext(Some("".to_string())))),
-            None
-        );
-    }
-
-    #[test]
-    fn test_caption_unable_field() {
-        assert_eq!(
-            to_command(build_webhook_request(MessageExt::Sticker {
-                sticker: Content {
-                    file_id: "123".to_string(),
-                    file_unique_id: "123".to_string()
-                }
-            })),
-            None
-        );
+    fn test_command() {
+        for (input, output) in [
+            // Commands exists
+            (text_ext("хлеб кто булочка?"), Some(Command::Who)),
+            (
+                caption_ext(Some("хлеб who булочка?".to_string())),
+                Some(Command::Who),
+            ),
+            (
+                text_ext("хлеб процент срабатывания"),
+                Some(Command::GetAnswerChance),
+            ),
+            (
+                caption_ext(Some("хлеб процент".to_string())),
+                Some(Command::GetAnswerChance),
+            ),
+            (
+                text_ext("хлеб процент срабатывания 10"),
+                Some(Command::SetAnswerChance),
+            ),
+            (
+                caption_ext(Some("хлеб процент 10".to_string())),
+                Some(Command::SetAnswerChance),
+            ),
+            // Empty raw_text
+            (text_ext(""), None),
+            (caption_ext(Some("".to_string())), None),
+            // Wrong raw_text
+            (text_ext("some wrong text"), None),
+            (caption_ext(Some("some wrong text".to_string())), None),
+            // Only bot-name word
+            (text_ext("хлеб"), None),
+            (caption_ext(Some("хлеб".to_string())), None),
+            // Without caption
+            (caption_ext(None), None),
+            // Unable caption field
+            (
+                MessageExt::Sticker {
+                    sticker: Content {
+                        file_id: "123".to_string(),
+                        file_unique_id: "123".to_string(),
+                    },
+                },
+                None,
+            ),
+        ] {
+            assert_eq!(to_command(build_webhook_request(input)), output);
+        };
     }
 }
