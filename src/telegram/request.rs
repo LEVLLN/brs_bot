@@ -81,7 +81,7 @@ impl MessageExt {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct MessagePart {
+pub struct MessageBody {
     #[serde(flatten)]
     pub base: MessageBase,
     #[serde(flatten)]
@@ -89,13 +89,27 @@ pub struct MessagePart {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct Message {
-    #[serde(flatten)]
-    pub direct: MessagePart,
-    #[serde(alias = "reply_to_message")]
-    pub reply: Option<MessagePart>,
+#[serde(untagged)]
+pub enum Message {
+    Common {
+        #[serde(flatten)]
+        direct: MessageBody,
+    },
+    Replied {
+        #[serde(flatten)]
+        direct: MessageBody,
+        #[serde(alias = "reply_to_message")]
+        reply: MessageBody,
+    },
 }
 
+impl Message {
+    pub fn direct(&self) -> &MessageBody {
+        match &self {
+            Message::Common { direct } | Message::Replied { direct, .. } => direct,
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]

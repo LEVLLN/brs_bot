@@ -1,7 +1,7 @@
 use strum_macros::EnumIter;
 
 use crate::services::lexer::{tokenize, Token};
-use crate::telegram::request::WebhookRequest;
+use crate::telegram::request::{WebhookRequest};
 
 // TODO: Перенести из проекта bread_bot все команды в структуру Command.
 // Задуматься над хранением внутри экземпляров Enum-а дополнительный тип CommandProperty
@@ -43,28 +43,25 @@ impl<'a> TryFrom<Vec<Token<'a>>> for Command {
 pub fn to_command(request: WebhookRequest) -> Option<Command> {
     request
         .any_message()
-        .direct
+        .direct()
         .ext
         .raw_text()
         .map(tokenize)
-        .and_then(|command| match Command::try_from(command) {
-            Ok(command) => Some(command),
-            Err(_) => None,
-        })
+        .and_then(|tokens| Command::try_from(tokens).ok())
 }
 
 #[cfg(test)]
 mod tests {
     use crate::services::commands::{to_command, Command};
     use crate::telegram::request::{
-        Chat, Content, Message, MessageBase, MessageExt, MessagePart, User, WebhookRequest,
+        Chat, Content, Message, MessageBase, MessageBody, MessageExt, User, WebhookRequest,
     };
 
     fn build_webhook_request(ext: MessageExt) -> WebhookRequest {
         WebhookRequest::Origin {
             update_id: 0,
-            message: Message {
-                direct: MessagePart {
+            message: Message::Common {
+                direct: MessageBody {
                     base: MessageBase {
                         message_id: 0,
                         from: User {
@@ -86,7 +83,6 @@ mod tests {
                     },
                     ext,
                 },
-                reply: None,
             },
         }
     }
