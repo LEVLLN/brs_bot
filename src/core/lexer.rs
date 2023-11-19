@@ -37,7 +37,7 @@ pub fn tokenize(text: &str) -> Vec<Token> {
 
 #[cfg(test)]
 mod tests {
-    use crate::services::lexer::{tokenize, Token::*};
+    use crate::core::lexer::{tokenize, Token::*};
 
     #[test]
     fn test_text_equals() {

@@ -1,7 +1,7 @@
 use actix_web::{App, HttpServer};
 
+mod core;
 mod server;
-mod services;
 mod telegram;
 
 #[actix_web::main]
