@@ -22,13 +22,13 @@ impl<'a> TryFrom<Vec<Token<'a>>> for Command {
         use Token::*;
         // FIXME: Slice-ы внутри не учитывают правила PartialEq для элементов
         match value[..] {
-            [Text("хлеб") | Text("bread_bot"), ..] if value.len() >= 2 => match value[1..] {
-                [Text("хелп") | Text("help") | Text("помощь"), ..] => Ok(Help),
-                [Text("кто") | Text("who"), ..] => Ok(Who),
-                [Text("процент"), Text("срабатывания")] | [Text("процент")] => {
+            [Word("хлеб") | Word("bread_bot"), ..] if value.len() >= 2 => match value[1..] {
+                [Word("хелп") | Word("help") | Word("помощь"), ..] => Ok(Help),
+                [Word("кто") | Word("who"), ..] => Ok(Who),
+                [Word("процент"), Word("срабатывания")] | [Word("процент")] => {
                     Ok(GetAnswerChance)
                 }
-                [Text("процент"), Text("срабатывания"), ..] | [Text("процент"), ..] => {
+                [Word("процент"), Word("срабатывания"), ..] | [Word("процент"), ..] => {
                     Ok(SetAnswerChance)
                 }
                 _ => Err(()),
