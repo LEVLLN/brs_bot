@@ -62,28 +62,70 @@ pub enum MessageExt {
         caption: Option<String>,
     },
 }
+
+impl MessageExt {
+    pub fn raw_text(&self) -> Option<&str> {
+        use MessageExt::*;
+        match &self {
+            Photo { caption, .. }
+            | Video { caption, .. }
+            | Voice { caption, .. }
+            | Animation { caption, .. } => caption.as_deref(),
+            Text { text, .. } => Some(text),
+            VideoNote { .. } | Sticker { .. } => None,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct Message {
+pub struct MessageBody {
     #[serde(flatten)]
     pub base: MessageBase,
     #[serde(flatten)]
-    pub ext: MessageExt
+    pub ext: MessageExt,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-pub enum MessageRequest {
-    Replied {
+pub enum Message {
+    Common{
         #[serde(flatten)]
-        message: Message,
-        reply_to_message: Message,
+        direct: MessageBody
     },
-    Common(Message),
+    Replied{
+        #[serde(flatten)]
+        direct: MessageBody,
+        #[serde(alias = "reply_to_message")]
+        reply: MessageBody,
+    }
+}
+
+impl Message {
+    pub fn direct(&self) -> &MessageBody {
+        match &self {
+            Message::Common {direct} | Message::Replied {direct, ..} => direct
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum WebhookRequest {
-    Edited { update_id: u32, edited_message: MessageRequest },
-    Origin { update_id: u32, message: MessageRequest },
+    Edited {
+        update_id: u32,
+        edited_message: Message,
+    },
+    Origin {
+        update_id: u32,
+        message: Message,
+    },
+}
+
+impl WebhookRequest {
+    pub fn any_message(&self) -> &Message {
+        match self {
+            WebhookRequest::Edited { edited_message, .. } => edited_message,
+            WebhookRequest::Origin { message, .. } => message,
+        }
+    }
 }
