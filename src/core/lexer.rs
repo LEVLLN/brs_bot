@@ -1,18 +1,19 @@
 use unicase::UniCase;
-
-use Token::Word;
+use Token::{Newline, Punctuation, Word};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Token<'a> {
     Newline,
     Word(&'a str),
+    Punctuation(&'a str),
 }
 
 impl<'a> PartialEq for Token<'a> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (&Word(a), &Word(b)) => UniCase::new(a) == UniCase::new(b),
-            (&Token::Newline, &Token::Newline) => true,
+            (&Punctuation(a), &Punctuation(b)) => a == b,
+            (&Newline, &Newline) => true,
             _ => false,
         }
     }
@@ -26,6 +27,9 @@ pub fn tokenize(text: &str) -> Vec<Token> {
         .filter(|words| !words.is_empty())
         .for_each(|word| match word {
             "\n" => token_list.push(Newline),
+            "," | "|" | "." | ":" | "!" | "?" | "-" | "(" | ")" | "[" | "]" | ";" | "'" => {
+                token_list.push(Punctuation(&word[word.len() - 1..]));
+            }
             x if x.ends_with('\n') => {
                 token_list.push(Word(&word[..word.len() - 1]));
                 token_list.push(Newline);
@@ -57,6 +61,10 @@ mod tests {
     fn test_tokenize() {
         for (input, output) in [
             ("some_str", vec![Word("some_str")]),
+            (
+                "some - str",
+                vec![Word("some"), Punctuation("-"), Word("str")],
+            ),
             (
                 "some_str some_another_str",
                 vec![Word("some_str"), Word("some_another_str")],
