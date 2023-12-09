@@ -1,16 +1,17 @@
-use crate::core::command::to_command;
+use crate::core::command::to_command_property;
 use crate::core::lexer::tokenize;
 use crate::telegram::request::WebhookRequest;
 
-pub fn handle_command(request: WebhookRequest) {
-    let command_property = request
+pub fn handle_command<'a>(request: WebhookRequest) -> Option<&'a str> {
+    let tokens = request
         .any_message()
         .direct()
         .ext
         .raw_text()
-        .map(tokenize)
-        .and_then(to_command);
+        .map(tokenize)?;
+    let command_property = to_command_property(&tokens);
     println!("{:?}", command_property);
+    Some("test")
 }
 
 #[cfg(test)]
