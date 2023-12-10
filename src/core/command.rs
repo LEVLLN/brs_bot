@@ -1,7 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::HashSet;
 
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -9,9 +9,6 @@ use Command::*;
 use Token::*;
 
 use crate::core::lexer::{tokenize, Token};
-
-static BOT_KEY_WORDS: Lazy<Vec<Token>> =
-    Lazy::new(|| vec![Word("хлеб"), Word("хлебушек"), Word("bread_bot")]);
 
 #[derive(Debug, Eq, PartialEq, EnumIter, Hash)]
 pub enum Command {
@@ -90,29 +87,34 @@ fn command_keywords<'a>() -> &'static Vec<(&'a Command, Vec<Token<'a>>)> {
     })
 }
 
-fn bot_key_word<'a>(value: &'a Vec<Token>) -> Option<Token<'a>> {
-    BOT_KEY_WORDS.iter().find_map(|token| {
-        if !value.is_empty() && token == &value[0] {
-            Some(value[0])
-        } else {
-            None
-        }
-    })
+fn is_bot_call(x: &Token) -> bool {
+    [
+        Word("хлеб"),
+        Word("хлебушек"),
+        Word("bread"),
+        Word("bread_bot"),
+    ]
+    .contains(x)
 }
-pub fn to_command_property(tokens: Vec<Token>) -> Option<CommandProperty> {
-    bot_key_word(&tokens)?;
-    command_keywords().iter().find_map(|(command, keywords)| {
-        if keywords.iter().enumerate().all(|(i, t)| {
-            keywords.len() < tokens.len() && tokens.len() > i + 1 && &tokens[i + 1] == t
-        }) {
-            Some(CommandProperty {
-                command,
-                command_end_position: keywords.len(),
-            })
-        } else {
-            None
-        }
-    })
+
+pub fn to_command_property<'a>(tokens: &[Token]) -> Option<CommandProperty<'a>> {
+    command_keywords()
+        .iter()
+        .find_map(|(command, keywords)| match tokens {
+            [bot_call, ..] if is_bot_call(bot_call) => {
+                if keywords.iter().enumerate().all(|(i, t)| {
+                    keywords.len() < tokens.len() && tokens.len() > i + 1 && &tokens[i + 1] == t
+                }) {
+                    Some(CommandProperty {
+                        command,
+                        command_end_position: keywords.len(),
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
 }
 
 #[cfg(test)]
@@ -120,25 +122,26 @@ mod tests {
     use Command::*;
 
     use crate::core::command::{
-        bot_key_word, command_keywords, to_command_property, Command, CommandProperty,
+        command_keywords, is_bot_call, to_command_property, Command, CommandProperty,
     };
     use crate::core::lexer::{tokenize, Token};
 
     #[test]
-    fn test_bot_key_word() {
+    fn test_is_bot_call() {
         command_keywords();
         for (input, output) in [
-            ("Хлеб кто булочка?", Some(Token::Word("Хлеб"))),
-            ("хлеб кто булочка?", Some(Token::Word("хлеб"))),
-            ("Хлебушек кто булочка?", Some(Token::Word("Хлебушек"))),
-            ("хлебушек кто булочка?", Some(Token::Word("хлебушек"))),
-            ("BREAD_BOT кто булочка?", Some(Token::Word("BREAD_BOT"))),
-            ("bread_bot кто булочка?", Some(Token::Word("BREAD_BOT"))),
-            ("Хлебукек кто булочка?", None),
-            ("", None),
-            (".", None),
+            (Token::Word("хлеб"), true),
+            (Token::Word("Хлеб"), true),
+            (Token::Word("Хлебушек"), true),
+            (Token::Word("хлебушек"), true),
+            (Token::Word("bread_bot"), true),
+            (Token::Word("bread"), true),
+            (Token::Word("BREAD_BOT"), true),
+            (Token::Word("хлебушкек"), false),
+            (Token::Newline, false),
+            (Token::Punctuation("-"), false),
         ] {
-            assert_eq!(bot_key_word(&tokenize(input)), output)
+            assert_eq!(is_bot_call(&input), output)
         }
     }
     #[test]
@@ -197,7 +200,10 @@ mod tests {
             // Without caption
             (None, None),
         ] {
-            assert_eq!(to_command_property(tokenize(input.unwrap_or_default())), output);
+            assert_eq!(
+                to_command_property(&tokenize(input.unwrap_or_default())),
+                output
+            );
         }
     }
 }
