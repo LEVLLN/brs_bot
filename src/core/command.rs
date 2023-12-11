@@ -37,7 +37,7 @@ pub enum Command {
 #[derive(Debug, PartialEq)]
 pub struct CommandProperty<'a> {
     pub command: &'a Command,
-    pub command_end_position: usize,
+    pub rest_start_position: usize,
 }
 
 fn command_keywords<'a>() -> &'static Vec<(&'a Command, Vec<Token<'a>>)> {
@@ -101,13 +101,13 @@ pub fn to_command_property<'a>(tokens: &[Token]) -> Option<CommandProperty<'a>> 
     command_keywords()
         .iter()
         .find_map(|(command, keywords)| match tokens {
-            [bot_call, ..] if is_bot_call(bot_call) => {
+            [bot_call, rest @ ..] if is_bot_call(bot_call) => {
                 if keywords.iter().enumerate().all(|(i, t)| {
-                    keywords.len() < tokens.len() && tokens.len() > i + 1 && &tokens[i + 1] == t
+                    keywords.len() < rest.len() + 1 && rest.len() > i && &rest[i] == t
                 }) {
                     Some(CommandProperty {
                         command,
-                        command_end_position: keywords.len(),
+                        rest_start_position: keywords.len() + 1,
                     })
                 } else {
                     None
@@ -152,42 +152,42 @@ mod tests {
                 Some("хлеб кто булочка?"),
                 Some(CommandProperty {
                     command: &Who,
-                    command_end_position: 1,
+                    rest_start_position: 2,
                 }),
             ),
             (
                 Some("хлеб КТО булочка?"),
                 Some(CommandProperty {
                     command: &Who,
-                    command_end_position: 1,
+                    rest_start_position: 2,
                 }),
             ),
             (
                 Some("ХЛЕБ кто булочка?"),
                 Some(CommandProperty {
                     command: &Who,
-                    command_end_position: 1,
+                    rest_start_position: 2,
                 }),
             ),
             (
                 Some("хлеб who булочка?"),
                 Some(CommandProperty {
                     command: &Who,
-                    command_end_position: 1,
+                    rest_start_position: 2,
                 }),
             ),
             (
                 Some("хлеб процент срабатывания"),
                 Some(CommandProperty {
                     command: &AnswerChance,
-                    command_end_position: 2,
+                    rest_start_position: 3,
                 }),
             ),
             (
                 Some("хлеб процент"),
                 Some(CommandProperty {
                     command: &AnswerChance,
-                    command_end_position: 1,
+                    rest_start_position: 2,
                 }),
             ),
             // Empty raw_text
