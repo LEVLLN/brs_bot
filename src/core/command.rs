@@ -34,10 +34,30 @@ pub enum Command {
     Advice,
 }
 
+#[derive(Debug, Eq, PartialEq, EnumIter, Hash)]
+pub enum ControlItem {
+    Substring,
+    Trigger,
+    MorphWord,
+    KeyWord,
+}
+
 #[derive(Debug, PartialEq)]
 pub struct CommandProperty<'a> {
     pub command: &'a Command,
-    pub rest_start_position: usize,
+    pub control_item: Option<ControlItem>,
+    pub rest: &'a [Token<'a>],
+}
+
+#[derive(Debug, PartialEq)]
+pub struct CommandParseError<'a> {
+    message: &'a str,
+}
+
+impl<'a> CommandParseError<'a> {
+    fn new(message: &str) -> CommandParseError {
+        CommandParseError { message }
+    }
 }
 
 fn command_keywords<'a>() -> &'static Vec<(&'a Command, Vec<Token<'a>>)> {
@@ -87,34 +107,78 @@ fn command_keywords<'a>() -> &'static Vec<(&'a Command, Vec<Token<'a>>)> {
     })
 }
 
-fn is_bot_call(x: &Token) -> bool {
+fn is_bot_call(token: &Token) -> bool {
     [
         Word("хлеб"),
         Word("хлебушек"),
         Word("bread"),
         Word("bread_bot"),
     ]
-    .contains(x)
+    .contains(token)
 }
 
-pub fn to_command_property<'a>(tokens: &[Token]) -> Option<CommandProperty<'a>> {
-    command_keywords()
-        .iter()
-        .find_map(|(command, keywords)| match tokens {
-            [bot_call, rest @ ..] if is_bot_call(bot_call) => {
-                if keywords.iter().enumerate().all(|(i, t)| {
-                    keywords.len() < rest.len() + 1 && rest.len() > i && &rest[i] == t
-                }) {
-                    Some(CommandProperty {
-                        command,
-                        rest_start_position: keywords.len() + 1,
-                    })
-                } else {
-                    None
-                }
+fn control_item_from_token<'a>(
+    command: &Command,
+    control_token: &'a Token,
+) -> Result<Option<ControlItem>, CommandParseError<'a>> {
+    match command {
+        Show | Add | Delete | Remember => match control_token {
+            Word("триггер") | Word("триггеры") => Ok(Some(ControlItem::Trigger)),
+            Word("подстроку") | Word("подстроки") => {
+                Ok(Some(ControlItem::Substring))
             }
-            _ => None,
-        })
+            Word("бред") => Ok(Some(ControlItem::MorphWord)),
+            Word("ключ") | Word("ключи") => Ok(Some(ControlItem::KeyWord)),
+            _ => Err(CommandParseError::new(
+                "Ошибка ввода команды. Команда должна содержать объект для редактирования",
+            )),
+        },
+        _ => Ok(None),
+    }
+}
+
+pub fn parse_command<'a>(
+    tokens: &'a [Token<'_>],
+) -> Result<Option<CommandProperty<'a>>, CommandParseError<'a>> {
+    match tokens {
+        [bot_call, rest @ ..] if is_bot_call(bot_call) => command_keywords()
+            .iter()
+            .find(|(_, keywords)| {
+                keywords.iter().enumerate().all(|(i, t)| {
+                    keywords.len() < rest.len() + 1 && rest.len() > i && &rest[i] == t
+                })
+            })
+            .map(|(command, keywords)| {
+                let rest_after_command = &rest[keywords.len()..=rest.len() - 1];
+                match rest_after_command {
+                    [control_token, rest_after_token @ ..] => {
+                        match control_item_from_token(command, control_token) {
+                            Ok(Some(x)) => Ok((command, Some(x), rest_after_token)),
+                            Ok(None) => Ok((command, None, rest_after_command)),
+                            Err(err) => Err(err),
+                        }
+                    }
+                    _ => Ok((command, None, rest_after_command)),
+                }
+            })
+            .map(|result_pack| match result_pack {
+                Ok((command, control_item, rest)) => match command {
+                    Help | Say | Check | RandomChoose if rest.is_empty() => {
+                        Err(CommandParseError::new(
+                            "Команда нуждается в указанных значениях для обработки",
+                        ))
+                    }
+                    _ => Ok(Some(CommandProperty {
+                        command,
+                        control_item,
+                        rest,
+                    })),
+                },
+                Err(err) => Err(err),
+            })
+            .unwrap_or(Ok(None)),
+        _ => Ok(None),
+    }
 }
 
 #[cfg(test)]
@@ -122,13 +186,12 @@ mod tests {
     use Command::*;
 
     use crate::core::command::{
-        command_keywords, is_bot_call, to_command_property, Command, CommandProperty,
+        is_bot_call, parse_command, Command, CommandParseError, CommandProperty, ControlItem,
     };
     use crate::core::lexer::{tokenize, Token};
 
     #[test]
     fn test_is_bot_call() {
-        command_keywords();
         for (input, output) in [
             (Token::Word("хлеб"), true),
             (Token::Word("Хлеб"), true),
@@ -147,63 +210,103 @@ mod tests {
     #[test]
     fn test_to_command() {
         for (input, output) in [
+            (
+                Some("хлеб проверь"),
+                Err(CommandParseError {
+                    message: "Команда нуждается в указанных значениях для обработки",
+                }),
+            ),
+            (
+                Some("хлеб добавь неподстроку?"),
+                Err(CommandParseError {
+                    message:
+                        "Ошибка ввода команды. Команда должна содержать объект для редактирования",
+                }),
+            ),
+            (
+                Some("хлеб добавь подстроку?"),
+                Ok(Some(CommandProperty {
+                    command: &Add,
+                    control_item: Some(ControlItem::Substring),
+                    rest: &[Token::Punctuation("?")],
+                })),
+            ),
             // Commands exists
             (
                 Some("хлеб кто булочка?"),
-                Some(CommandProperty {
+                Ok(Some(CommandProperty {
                     command: &Who,
-                    rest_start_position: 2,
-                }),
+                    control_item: None,
+                    rest: &[Token::Word("булочка"), Token::Punctuation("?")],
+                })),
             ),
             (
                 Some("хлеб КТО булочка?"),
-                Some(CommandProperty {
+                Ok(Some(CommandProperty {
                     command: &Who,
-                    rest_start_position: 2,
-                }),
+                    control_item: None,
+                    rest: &[Token::Word("булочка"), Token::Punctuation("?")],
+                })),
             ),
             (
                 Some("ХЛЕБ кто булочка?"),
-                Some(CommandProperty {
+                Ok(Some(CommandProperty {
                     command: &Who,
-                    rest_start_position: 2,
-                }),
+                    control_item: None,
+                    rest: &[Token::Word("булочка"), Token::Punctuation("?")],
+                })),
             ),
             (
                 Some("хлеб who булочка?"),
-                Some(CommandProperty {
+                Ok(Some(CommandProperty {
                     command: &Who,
-                    rest_start_position: 2,
-                }),
+                    control_item: None,
+                    rest: &[Token::Word("булочка"), Token::Punctuation("?")],
+                })),
+            ),
+            (
+                Some("хлеб кто?"),
+                Ok(Some(CommandProperty {
+                    command: &Who,
+                    control_item: None,
+                    rest: &[Token::Punctuation("?")],
+                })),
+            ),
+            (
+                Some("хлеб кто"),
+                Ok(Some(CommandProperty {
+                    command: &Who,
+                    control_item: None,
+                    rest: &[],
+                })),
             ),
             (
                 Some("хлеб процент срабатывания"),
-                Some(CommandProperty {
+                Ok(Some(CommandProperty {
                     command: &AnswerChance,
-                    rest_start_position: 3,
-                }),
+                    control_item: None,
+                    rest: &[],
+                })),
             ),
             (
                 Some("хлеб процент"),
-                Some(CommandProperty {
+                Ok(Some(CommandProperty {
                     command: &AnswerChance,
-                    rest_start_position: 2,
-                }),
+                    control_item: None,
+                    rest: &[],
+                })),
             ),
             // Empty raw_text
-            (Some(""), None),
+            (Some(""), Ok(None)),
             // Wrong raw_text
-            (Some("some_wrong_text"), None),
+            (Some("some_wrong_text"), Ok(None)),
             // Only bot-name word
-            (Some("хлеб"), None),
-            (Some("Хлеб"), None),
+            (Some("хлеб"), Ok(None)),
+            (Some("Хлеб"), Ok(None)),
             // Without caption
-            (None, None),
+            (None, Ok(None)),
         ] {
-            assert_eq!(
-                to_command_property(&tokenize(input.unwrap_or_default())),
-                output
-            );
+            assert_eq!(parse_command(&tokenize(input.unwrap_or_default())), output);
         }
     }
 }

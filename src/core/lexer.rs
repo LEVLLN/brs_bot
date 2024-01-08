@@ -1,11 +1,13 @@
 use unicase::UniCase;
-use Token::{Newline, Punctuation, Word};
+
+use Token::{Newline, Punctuation, Symbol, Word};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Token<'a> {
     Newline,
     Word(&'a str),
     Punctuation(&'a str),
+    Symbol(&'a str),
 }
 
 impl<'a> PartialEq for Token<'a> {
@@ -13,6 +15,7 @@ impl<'a> PartialEq for Token<'a> {
         match (self, other) {
             (&Word(a), &Word(b)) => UniCase::new(a) == UniCase::new(b),
             (&Punctuation(a), &Punctuation(b)) => a == b,
+            (&Symbol(a), &Symbol(b)) => a == b,
             (&Newline, &Newline) => true,
             _ => false,
         }
@@ -27,12 +30,16 @@ pub fn tokenize(text: &str) -> Vec<Token> {
         .filter(|words| !words.is_empty())
         .for_each(|word| match word {
             "\n" => token_list.push(Newline),
-            "," | "|" | "." | ":" | "!" | "?" | "-" | "(" | ")" | "[" | "]" | ";" | "'" => {
-                token_list.push(Punctuation(&word[word.len() - 1..]));
+            x if x.chars().all(|x| !x.is_alphanumeric()) => {
+                token_list.push(Symbol(&word[word.len() - 1..]));
             }
             x if x.ends_with('\n') => {
                 token_list.push(Word(&word[..word.len() - 1]));
                 token_list.push(Newline);
+            }
+            x if !x.chars().last().unwrap().is_alphanumeric() => {
+                token_list.push(Word(&word[..word.len() - 1]));
+                token_list.push(Punctuation(&word[word.len() - 1..]));
             }
             _ => token_list.push(Word(word)),
         });
@@ -61,10 +68,9 @@ mod tests {
     fn test_tokenize() {
         for (input, output) in [
             ("some_str", vec![Word("some_str")]),
-            (
-                "some - str",
-                vec![Word("some"), Punctuation("-"), Word("str")],
-            ),
+            ("some_str?", vec![Word("some_str"), Punctuation("?")]),
+            ("?some_str", vec![Word("?some_str")]),
+            ("some - str", vec![Word("some"), Symbol("-"), Word("str")]),
             (
                 "some_str some_another_str",
                 vec![Word("some_str"), Word("some_another_str")],

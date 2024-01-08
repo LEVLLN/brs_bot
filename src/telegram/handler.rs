@@ -1,4 +1,4 @@
-use crate::core::command::to_command_property;
+use crate::core::command::parse_command;
 use crate::core::lexer::tokenize;
 use crate::telegram::request::WebhookRequest;
 
@@ -9,7 +9,7 @@ pub fn handle_command<'a>(request: WebhookRequest) -> Option<&'a str> {
         .ext
         .raw_text()
         .map(tokenize)?;
-    let command_property = to_command_property(&tokens);
+    let command_property = parse_command(&tokens);
     println!("{:?}", command_property);
     Some("test")
 }
