@@ -1,13 +1,13 @@
-use actix_web::{App, HttpServer};
-
 mod core;
 mod server;
 mod telegram;
+use axum::{routing::post, Router};
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().service(server::telegram_webhook_route))
-        .bind(("127.0.0.1", 8080))?
-        .run()
-        .await
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+    let app = Router::new()
+        .route("/api/telegram", post(server::telegram_webhook_route));
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
