@@ -54,12 +54,6 @@ pub struct CommandParseError<'a> {
     message: &'a str,
 }
 
-impl<'a> CommandParseError<'a> {
-    fn new(message: &str) -> CommandParseError {
-        CommandParseError { message }
-    }
-}
-
 fn command_keywords<'a>() -> &'static Vec<(&'a Command, Vec<Token<'a>>)> {
     static INSTANCE: OnceCell<Vec<(&Command, Vec<Token>)>> = OnceCell::new();
     INSTANCE.get_or_init(|| {
@@ -129,17 +123,17 @@ fn control_item_from_token<'a>(
             }
             Word("бред") => Ok(Some(ControlItem::MorphWord)),
             Word("ключ") | Word("ключи") => Ok(Some(ControlItem::KeyWord)),
-            _ => Err(CommandParseError::new(
-                "Ошибка ввода команды. Команда должна содержать объект для редактирования",
-            )),
+            _ => Err(CommandParseError {
+                message: "Ошибка ввода команды. Команда должна содержать объект для редактирования",
+            }),
         },
         _ => Ok(None),
     }
 }
 
-pub fn parse_command<'a>(
-    tokens: &'a [Token<'_>],
-) -> Result<Option<CommandProperty<'a>>, CommandParseError<'a>> {
+fn find_command<'a>(
+    tokens: &'a [Token<'a>],
+) -> Option<(&'a Command, &'a [Token<'a>], &'a [Token<'a>])> {
     match tokens {
         [bot_call, rest @ ..] if is_bot_call(bot_call) => command_keywords()
             .iter()
@@ -149,36 +143,51 @@ pub fn parse_command<'a>(
                 })
             })
             .map(|(command, keywords)| {
-                let rest_after_command = &rest[keywords.len()..=rest.len() - 1];
+                (
+                    *command,
+                    &rest[0..=keywords.len() - 1],
+                    &rest[keywords.len()..=rest.len() - 1],
+                )
+            }),
+        _ => None,
+    }
+}
+
+pub fn parse_command<'a>(
+    tokens: &'a [Token<'_>],
+) -> Result<Option<CommandProperty<'a>>, CommandParseError<'a>> {
+    find_command(tokens)
+        .map(|(command, keywords, rest_after_command)| {
+            if [Say, Help, Check, RandomChoose].contains(command) && rest_after_command.is_empty() {
+                Err(CommandParseError {
+                    message: "Команда нуждается в указанных значениях для обработки",
+                })
+            } else {
                 match rest_after_command {
-                    [control_token, rest_after_token @ ..] => {
-                        match control_item_from_token(command, control_token) {
-                            Ok(Some(x)) => Ok((command, Some(x), rest_after_token)),
-                            Ok(None) => Ok((command, None, rest_after_command)),
-                            Err(err) => Err(err),
+                    [control_token, rest_after_control_item @ ..] => {
+                        let control_item = control_item_from_token(command, control_token)?;
+                        match control_item {
+                            Some(x) => Ok(CommandProperty {
+                                command,
+                                control_item: Some(x),
+                                rest: rest_after_control_item,
+                            }),
+                            None => Ok(CommandProperty {
+                                command,
+                                control_item: None,
+                                rest: rest_after_command,
+                            }),
                         }
                     }
-                    _ => Ok((command, None, rest_after_command)),
-                }
-            })
-            .map(|result_pack| match result_pack {
-                Ok((command, control_item, rest)) => match command {
-                    Help | Say | Check | RandomChoose if rest.is_empty() => {
-                        Err(CommandParseError::new(
-                            "Команда нуждается в указанных значениях для обработки",
-                        ))
-                    }
-                    _ => Ok(Some(CommandProperty {
+                    [] => Ok(CommandProperty {
                         command,
-                        control_item,
-                        rest,
-                    })),
-                },
-                Err(err) => Err(err),
-            })
-            .unwrap_or(Ok(None)),
-        _ => Ok(None),
-    }
+                        control_item: None,
+                        rest: rest_after_command,
+                    }),
+                }
+            }
+        })
+        .map_or(Ok(None), |r| r.map(Some))
 }
 
 #[cfg(test)]

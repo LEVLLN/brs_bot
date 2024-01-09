@@ -128,4 +128,11 @@ impl WebhookRequest {
             WebhookRequest::Origin { message, .. } => message,
         }
     }
+    pub fn origin_message(&self) -> Option<&Message> {
+        if let WebhookRequest::Origin{ message, .. } = &self {
+            Some(message)
+        } else {
+            None
+        }
+    }
 }
