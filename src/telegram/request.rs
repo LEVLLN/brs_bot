@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct User {
-    pub id: u32,
+    pub id: i64,
     pub is_bot: bool,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
@@ -11,7 +11,7 @@ pub struct User {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Chat {
-    pub id: u32,
+    pub id: i64,
     pub title: Option<String>,
     pub first_name: Option<String>,
     pub last_name: Option<String>,

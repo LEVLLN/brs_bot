@@ -1,0 +1,64 @@
+{
+  "update_id": 960169615,
+  "callback_query": {
+    "id": "1272953675410973440",
+    "from": {
+      "id": 211382611,
+      "is_bot": false,
+      "first_name": "FirstName",
+      "last_name": "LastName",
+      "username": "Username",
+      "language_code": "en"
+    },
+    "message": {
+      "message_id": 113981,
+      "from": {
+        "id": 1991322963,
+        "is_bot": true,
+        "first_name": "Хлебушек",
+        "username": "bread_hleb_bot"
+      },
+      "chat": {
+        "id": 211382611,
+        "first_name": "FirstName",
+        "last_name": "LastName",
+        "username": "Username",
+        "type": "private"
+      },
+      "date": 1704936871,
+      "reply_to_message": {
+        "message_id": 113206,
+        "from": {
+          "id": 211382611,
+          "is_bot": false,
+          "first_name": "FirstName",
+          "last_name": "LastName",
+          "username": "Username",
+          "language_code": "en"
+        },
+        "chat": {
+          "id": 211382611,
+          "first_name": "FirstName",
+          "last_name": "LastName",
+          "username": "Username",
+          "type": "private"
+        },
+        "date": 1704222154,
+        "text": "хлеб кто булочка"
+      },
+      "text": "FirstName LastName булочка",
+      "reply_markup": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "Repeat",
+              "callback_data": "repeat_operation"
+            }
+          ]
+        ]
+      }
+    },
+    "chat_instance": "-2190425310845290436",
+    "data": "repeat_operation"
+  }
+}
