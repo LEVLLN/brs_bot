@@ -96,7 +96,7 @@ pub enum Message {
         #[serde(flatten)]
         direct: MessageBody,
         #[serde(alias = "reply_to_message")]
-        reply: MessageBody,
+        reply: Box<MessageBody>,
     }
 }
 
@@ -126,13 +126,6 @@ impl RequestPayload {
         match self {
             RequestPayload::Edited { edited_message, .. } => edited_message,
             RequestPayload::Origin { message, .. } => message,
-        }
-    }
-    pub fn origin_message(&self) -> Option<&Message> {
-        if let RequestPayload::Origin{ message, .. } = &self {
-            Some(message)
-        } else {
-            None
         }
     }
 }

@@ -20,7 +20,10 @@ pub async fn telegram_webhook_route(
         process_chat(&pool, &payload.any_message().direct().base.chat)
     ) {
         Ok((member_id, chat_id)) => {
-            bind_user_to_chat(&pool, &member_id, &chat_id).await;
+            match bind_user_to_chat(&pool, &member_id, &chat_id).await {
+                Ok(_) => {}
+                Err(_) => return StatusCode::OK,
+            };
         }
         Err(_) => return StatusCode::OK,
     }

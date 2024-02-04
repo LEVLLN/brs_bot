@@ -33,22 +33,6 @@ pub fn chat_title(chat: &ChatRequest) -> String {
     }
 }
 
-pub fn username(user: &UserRequest) -> String {
-    match user {
-        UserRequest {
-            first_name: Some(first_name),
-            last_name: Some(last_name),
-            ..
-        } if !first_name.is_empty() || !last_name.is_empty() => {
-            format!("{first_name} {last_name}").to_string()
-        }
-        UserRequest {
-            username: Some(username),
-            ..
-        } if !username.is_empty() => username.to_string(),
-        _ => user.id.to_string(),
-    }
-}
 
 pub async fn process_chat<'a>(
     pool: &Pool<Postgres>,
@@ -74,7 +58,7 @@ pub async fn process_chat<'a>(
             Ok(db_id)
         }
     } else {
-        match ChatDB::create_chat(&pool, chat.id, &new_chat_name).await {
+        match ChatDB::create_chat(pool, chat.id, &new_chat_name).await {
             Ok(chat_id) => {
                 info!(
                     "Chat {} created with name: {}. Record: {:?}",

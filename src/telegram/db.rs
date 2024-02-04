@@ -24,15 +24,6 @@ pub struct Member {
 }
 
 impl Member {
-    pub async fn all(&self, pool: Pool<Postgres>) -> Vec<Member> {
-        query_as::<_, Member>(
-            "SELECT id, member_id, is_bot, username, last_name, first_name FROM members;",
-        )
-        .fetch_all(&pool)
-        .await
-        .ok()
-        .unwrap()
-    }
     pub async fn one_by_member_id(pool: &Pool<Postgres>, member_id: i64) -> Option<Member> {
         query_as::<_, Member>(
             &format!("SELECT id, member_id, is_bot, username, last_name, first_name FROM members WHERE member_id = {member_id};"),
@@ -122,13 +113,6 @@ pub struct Chat {
 }
 
 impl Chat {
-    pub async fn all(pool: &Pool<Postgres>) -> Vec<Chat> {
-        query_as::<_, Chat>("SELECT id, chat_id, name from chats where chat_id > 0;")
-            .fetch_all(pool)
-            .await
-            .ok()
-            .unwrap()
-    }
     pub async fn id_and_name(pool: &Pool<Postgres>, chat_id: i64) -> Option<(ChatId, String)> {
         query("SELECT id, name FROM chats WHERE chat_id = $1")
             .bind(chat_id)
