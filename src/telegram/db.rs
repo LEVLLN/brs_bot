@@ -1,16 +1,16 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sqlx::{Error, FromRow, Pool, Postgres, query, query_as, Row};
 use sqlx::postgres::PgQueryResult;
+use sqlx::{query, query_as, Error, FromRow, Pool, Postgres, Row};
 
-#[derive(Debug, FromRow)]
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct Member {
-    id: i32,
-    member_id: i64,
-    is_bot: bool,
-    username: String,
-    first_name: String,
-    last_name: String,
+    pub id: i32,
+    pub member_id: i64,
+    pub is_bot: bool,
+    pub username: String,
+    pub first_name: String,
+    pub last_name: String,
 }
 
 impl Member {
@@ -30,6 +30,44 @@ impl Member {
             .fetch_one(pool)
             .await
             .ok()
+    }
+
+    pub async fn update_names(
+        pool: &Pool<Postgres>,
+        member_id: i64,
+        username: &str,
+        first_name: &str,
+        last_name: &str,
+    ) -> Result<PgQueryResult, Error> {
+        query("UPDATE members set username = $1, first_name = $2, last_name = $3, updated_at = $4 where member_id = $5")
+            .bind(username)
+            .bind(first_name)
+            .bind(last_name)
+            .bind(Utc::now())
+            .bind(member_id)
+            .execute(pool)
+            .await
+    }
+
+    pub async fn create_member(
+        pool: &Pool<Postgres>,
+        member_id: &i64,
+        username: &str,
+        first_name: &str,
+        last_name: &str,
+    ) -> Result<PgQueryResult, Error> {
+        let now = Utc::now();
+        query("INSERT INTO members (is_active, member_id, username, first_name, last_name, is_bot, created_at, updated_at) values ($1, $2, $3, $4, $5, $6, $7, $8)")
+            .bind(true)
+            .bind(member_id)
+            .bind(username)
+            .bind(first_name)
+            .bind(last_name)
+            .bind(false)
+            .bind(now)
+            .bind(now)
+            .execute(pool)
+            .await
     }
 }
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
@@ -55,7 +93,11 @@ impl Chat {
             .ok()
             .map(|x| x.get::<String, _>("name"))
     }
-    pub async fn create_chat(pool: &Pool<Postgres>, chat_id: &i64, name: &str) -> Result<PgQueryResult, Error> {
+    pub async fn create_chat(
+        pool: &Pool<Postgres>,
+        chat_id: &i64,
+        name: &str,
+    ) -> Result<PgQueryResult, Error> {
         let now = Utc::now();
         query("INSERT INTO chats (is_active, chat_id, name, morph_answer_chance, is_openai_enabled, created_at, updated_at) values ($1, $2, $3, $4, $5, $6, $7)")
             .bind(true)

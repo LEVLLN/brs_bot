@@ -1,8 +1,8 @@
 use crate::core::command::parse_command;
 use crate::core::lexer::{tokenize, Token};
-use crate::telegram::request::WebhookRequest;
+use crate::telegram::request::RequestPayload;
 
-pub fn tokens_from_request(request: &WebhookRequest) -> Option<Vec<Token>> {
+pub fn tokens_from_request(request: &RequestPayload) -> Option<Vec<Token>> {
     request
         .any_message()
         .direct()
@@ -11,7 +11,7 @@ pub fn tokens_from_request(request: &WebhookRequest) -> Option<Vec<Token>> {
         .map(tokenize)
 }
 
-pub fn handle_command<'a>(request: &WebhookRequest) -> Option<&'a str> {
+pub fn handle_command<'a>(request: &RequestPayload) -> Option<&'a str> {
     let tokens = &tokens_from_request(request)?;
     let command_property = parse_command(tokens);
     println!("{:?}", command_property);
@@ -21,11 +21,11 @@ pub fn handle_command<'a>(request: &WebhookRequest) -> Option<&'a str> {
 #[cfg(test)]
 mod tests {
     use crate::telegram::request::{
-        Chat, Message, MessageBase, MessageBody, MessageExt, User, WebhookRequest,
+        Chat, Message, MessageBase, MessageBody, MessageExt, User, RequestPayload,
     };
 
-    fn build_webhook_request(ext: MessageExt) -> WebhookRequest {
-        WebhookRequest::Origin {
+    fn build_webhook_request(ext: MessageExt) -> RequestPayload {
+        RequestPayload::Origin {
             update_id: 0,
             message: Message::Common {
                 direct: MessageBody {

@@ -157,7 +157,7 @@ pub fn parse_command<'a>(
     tokens: &'a [Token<'_>],
 ) -> Result<Option<CommandProperty<'a>>, CommandParseError<'a>> {
     find_command(tokens)
-        .map(|(command, keywords, rest_after_command)| {
+        .map(|(command, _, rest_after_command)| {
             if [Say, Help, Check, RandomChoose].contains(command) && rest_after_command.is_empty() {
                 Err(CommandParseError {
                     message: "Команда нуждается в указанных значениях для обработки",

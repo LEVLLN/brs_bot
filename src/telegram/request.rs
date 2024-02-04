@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct User {
     pub id: i64,
     pub is_bot: bool,
@@ -110,7 +110,7 @@ impl Message {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-pub enum WebhookRequest {
+pub enum RequestPayload {
     Edited {
         update_id: u32,
         edited_message: Message,
@@ -121,15 +121,15 @@ pub enum WebhookRequest {
     },
 }
 
-impl WebhookRequest {
+impl RequestPayload {
     pub fn any_message(&self) -> &Message {
         match self {
-            WebhookRequest::Edited { edited_message, .. } => edited_message,
-            WebhookRequest::Origin { message, .. } => message,
+            RequestPayload::Edited { edited_message, .. } => edited_message,
+            RequestPayload::Origin { message, .. } => message,
         }
     }
     pub fn origin_message(&self) -> Option<&Message> {
-        if let WebhookRequest::Origin{ message, .. } = &self {
+        if let RequestPayload::Origin{ message, .. } = &self {
             Some(message)
         } else {
             None
