@@ -1,11 +1,21 @@
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sqlx::postgres::PgQueryResult;
 use sqlx::{query, query_as, Error, FromRow, Pool, Postgres, Row};
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
+#[sqlx(transparent)]
+pub struct MemberId(i32);
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
+#[sqlx(transparent)]
+pub struct ChatId(i32);
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
+#[sqlx(transparent)]
+pub struct ChatToMemberId(i32);
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct Member {
-    pub id: i32,
+    pub id: MemberId,
     pub member_id: i64,
     pub is_bot: bool,
     pub username: String,
@@ -16,16 +26,16 @@ pub struct Member {
 impl Member {
     pub async fn all(&self, pool: Pool<Postgres>) -> Vec<Member> {
         query_as::<_, Member>(
-            "SELECT id, member_id, is_bot, username, last_name, first_name from members;",
+            "SELECT id, member_id, is_bot, username, last_name, first_name FROM members;",
         )
         .fetch_all(&pool)
         .await
         .ok()
         .unwrap()
     }
-    pub async fn one_by_member_id(pool: &Pool<Postgres>, member_id: &i64) -> Option<Member> {
+    pub async fn one_by_member_id(pool: &Pool<Postgres>, member_id: i64) -> Option<Member> {
         query_as::<_, Member>(
-            &format!("SELECT id, member_id, is_bot, username, last_name, first_name from members where member_id = {member_id};"),
+            &format!("SELECT id, member_id, is_bot, username, last_name, first_name FROM members WHERE member_id = {member_id};"),
         )
             .fetch_one(pool)
             .await
@@ -38,41 +48,75 @@ impl Member {
         username: &str,
         first_name: &str,
         last_name: &str,
-    ) -> Result<PgQueryResult, Error> {
-        query("UPDATE members set username = $1, first_name = $2, last_name = $3, updated_at = $4 where member_id = $5")
+    ) -> Result<MemberId, Error> {
+        query("UPDATE members SET username = $1, first_name = $2, last_name = $3, updated_at = now() \
+        WHERE member_id = $4\
+        RETURNING id;")
             .bind(username)
             .bind(first_name)
             .bind(last_name)
-            .bind(Utc::now())
             .bind(member_id)
-            .execute(pool)
-            .await
+            .fetch_one(pool)
+            .await.map(|x| x.get::<MemberId, _>("id"))
     }
 
     pub async fn create_member(
         pool: &Pool<Postgres>,
-        member_id: &i64,
+        member_id: i64,
         username: &str,
         first_name: &str,
         last_name: &str,
-    ) -> Result<PgQueryResult, Error> {
-        let now = Utc::now();
-        query("INSERT INTO members (is_active, member_id, username, first_name, last_name, is_bot, created_at, updated_at) values ($1, $2, $3, $4, $5, $6, $7, $8)")
-            .bind(true)
-            .bind(member_id)
-            .bind(username)
-            .bind(first_name)
-            .bind(last_name)
-            .bind(false)
-            .bind(now)
-            .bind(now)
-            .execute(pool)
-            .await
+    ) -> Result<MemberId, Error> {
+        query(
+            "INSERT INTO members \
+        (is_active, member_id, username, first_name, last_name, is_bot, created_at, updated_at) \
+        VALUES (true, $1, $2, $3, $4, false, now(), now())\
+        RETURNING id",
+        )
+        .bind(member_id)
+        .bind(username)
+        .bind(first_name)
+        .bind(last_name)
+        .fetch_one(pool)
+        .await
+        .map(|x| x.get::<MemberId, _>("id"))
+    }
+
+    pub async fn is_in_chat(pool: &Pool<Postgres>, member_id: &MemberId, chat_id: &ChatId) -> bool {
+        query(
+            "SELECT EXISTS (SELECT id FROM chats_to_members \
+        WHERE member_id = $1 \
+        AND chat_id = $2);",
+        )
+        .bind(member_id)
+        .bind(chat_id)
+        .fetch_one(pool)
+        .await
+        .ok()
+        .map(|x| x.get::<bool, _>("exists"))
+        .unwrap_or_default()
+    }
+    pub async fn bind_to_chat(
+        pool: &Pool<Postgres>,
+        member_id: &MemberId,
+        chat_id: &ChatId,
+    ) -> Result<ChatToMemberId, Error> {
+        query(
+            "INSERT INTO chats_to_members (member_id, chat_id, updated_at, created_at, is_active) \
+        VALUES ($1, $2, now(), now(), true) \
+        RETURNING id;",
+        )
+        .bind(member_id)
+        .bind(chat_id)
+        .fetch_one(pool)
+        .await
+        .map(|x| x.get::<ChatToMemberId, _>("id"))
     }
 }
+
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct Chat {
-    id: i32,
+    id: ChatId,
     chat_id: i64,
     name: String,
 }
@@ -85,41 +129,41 @@ impl Chat {
             .ok()
             .unwrap()
     }
-    pub async fn chat_name(pool: &Pool<Postgres>, chat_id: &i64) -> Option<String> {
-        query("SELECT name FROM chats WHERE chat_id = $1")
+    pub async fn id_and_name(pool: &Pool<Postgres>, chat_id: i64) -> Option<(ChatId, String)> {
+        query("SELECT id, name FROM chats WHERE chat_id = $1")
             .bind(chat_id)
             .fetch_one(pool)
             .await
             .ok()
-            .map(|x| x.get::<String, _>("name"))
+            .map(|x| (x.get::<ChatId, _>("id"), x.get::<String, _>("name")))
     }
     pub async fn create_chat(
         pool: &Pool<Postgres>,
-        chat_id: &i64,
+        chat_id: i64,
         name: &str,
-    ) -> Result<PgQueryResult, Error> {
-        let now = Utc::now();
-        query("INSERT INTO chats (is_active, chat_id, name, morph_answer_chance, is_openai_enabled, created_at, updated_at) values ($1, $2, $3, $4, $5, $6, $7)")
-            .bind(true)
-            .bind(chat_id)
-            .bind(name)
-            .bind(15)
-            .bind(false)
-            .bind(now)
-            .bind(now)
-            .execute(pool)
-            .await
+    ) -> Result<ChatId, Error> {
+        query(
+            "INSERT INTO chats \
+        (is_active, chat_id, name, morph_answer_chance, is_openai_enabled, created_at, updated_at) \
+        VALUES (true, $1, $2, 15, false, now(), now())\
+        RETURNING id;",
+        )
+        .bind(chat_id)
+        .bind(name)
+        .fetch_one(pool)
+        .await
+        .map(|x| x.get::<ChatId, _>("id"))
     }
     pub async fn update_name(
         pool: &Pool<Postgres>,
-        chat_id: &i64,
+        chat_id: i64,
         name: &str,
-    ) -> Result<PgQueryResult, Error> {
-        query("UPDATE chats set name = $1, updated_at = $2 where chat_id = $3")
+    ) -> Result<ChatId, Error> {
+        query("UPDATE chats SET name = $1, updated_at = now() where chat_id = $2 RETURNING id;")
             .bind(name)
-            .bind(Utc::now())
             .bind(chat_id)
-            .execute(pool)
+            .fetch_one(pool)
             .await
+            .map(|x| x.get::<ChatId, _>("id"))
     }
 }

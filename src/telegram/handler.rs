@@ -3,12 +3,7 @@ use crate::core::lexer::{tokenize, Token};
 use crate::telegram::request::RequestPayload;
 
 pub fn tokens_from_request(request: &RequestPayload) -> Option<Vec<Token>> {
-    request
-        .any_message()
-        .direct()
-        .ext
-        .raw_text()
-        .map(tokenize)
+    request.any_message().direct().ext.raw_text().map(tokenize)
 }
 
 pub fn handle_command<'a>(request: &RequestPayload) -> Option<&'a str> {
@@ -21,7 +16,7 @@ pub fn handle_command<'a>(request: &RequestPayload) -> Option<&'a str> {
 #[cfg(test)]
 mod tests {
     use crate::telegram::request::{
-        Chat, Message, MessageBase, MessageBody, MessageExt, User, RequestPayload,
+        Chat, Message, MessageBase, MessageBody, MessageExt, RequestPayload, User,
     };
 
     fn build_webhook_request(ext: MessageExt) -> RequestPayload {
