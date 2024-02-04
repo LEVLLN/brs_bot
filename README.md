@@ -6,6 +6,12 @@ It's easy!
 cargo run
 ```
 
+
+## Check and format code
+```shell
+cargo clippy --all-targets --all-features -- -D warnings
+```
+
 ## How to SQL migrations
 
 ### Default operations
