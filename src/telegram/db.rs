@@ -3,15 +3,11 @@ use sqlx::{query, query_as, Error, FromRow, Pool, Postgres, Row};
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
 #[sqlx(transparent)]
-pub struct MemberId(i32);
-
-#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
-#[sqlx(transparent)]
-pub struct ChatId(i32);
-
-#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
-#[sqlx(transparent)]
 pub struct ChatToMemberId(i32);
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
+#[sqlx(transparent)]
+pub struct MemberId(i32);
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct Member {
@@ -104,6 +100,10 @@ impl Member {
         .map(|x| x.get::<ChatToMemberId, _>("id"))
     }
 }
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
+#[sqlx(transparent)]
+pub struct ChatId(i32);
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct Chat {

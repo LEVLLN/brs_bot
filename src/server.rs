@@ -14,7 +14,7 @@ pub async fn telegram_webhook_route(
     State(pool): State<PgPool>,
     Json(payload): Json<Value>,
 ) -> StatusCode {
-    let request_payload: RequestPayload = match serde_json::from_value(payload) {
+    let request_payload = match serde_json::from_value::<RequestPayload>(payload) {
         Ok(request_payload) => request_payload,
         Err(_) => {
             warn!("Receipt not supported body.");
