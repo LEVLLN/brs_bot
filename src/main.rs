@@ -10,6 +10,7 @@ use crate::config::DATABASE_URL;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&DATABASE_URL)
