@@ -9,7 +9,7 @@ pub struct User {
     pub username: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Chat {
     pub id: i64,
     pub title: Option<String>,

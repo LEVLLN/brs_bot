@@ -6,9 +6,9 @@ use serde_json::Value;
 use sqlx::postgres::PgPool;
 use tokio::try_join;
 
-use crate::telegram::handler::handle_command;
-use crate::telegram::request::RequestPayload;
-use crate::telegram::user_service::{bind_user_to_chat, process_chat, process_user};
+use crate::common::message_handler::handle_command;
+use crate::common::request::RequestPayload;
+use crate::common::user_service::{bind_user_to_chat, process_chat, process_user};
 
 pub async fn telegram_webhook_route(
     State(pool): State<PgPool>,

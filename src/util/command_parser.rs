@@ -8,7 +8,7 @@ use strum_macros::EnumIter;
 use Command::*;
 use Token::*;
 
-use crate::core::lexer::{tokenize, Token};
+use crate::util::lexer::{tokenize, Token};
 
 #[derive(Debug, Eq, PartialEq, EnumIter, Hash)]
 pub enum Command {
@@ -194,10 +194,10 @@ pub fn parse_command<'a>(
 mod tests {
     use Command::*;
 
-    use crate::core::command::{
+    use crate::util::command_parser::{
         is_bot_call, parse_command, Command, CommandParseError, CommandProperty, ControlItem,
     };
-    use crate::core::lexer::{tokenize, Token};
+    use crate::util::lexer::{tokenize, Token};
 
     #[test]
     fn test_is_bot_call() {

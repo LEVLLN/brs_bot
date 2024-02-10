@@ -1,23 +1,24 @@
-mod config;
-mod core;
-mod server;
-mod telegram;
-mod tests;
+use axum::{routing::post, Router};
+use sqlx::postgres::PgPoolOptions;
+use sqlx::{Pool, Postgres};
 
 use crate::config::DATABASE_URL;
-use axum::{routing::post, Router};
-use sqlx::{Pool, Postgres};
-use sqlx::postgres::PgPoolOptions;
+
+mod config;
+mod server;
+mod common;
+mod tests;
+mod util;
 
 pub async fn web_app(pool: Pool<Postgres>) -> Router {
-    tracing_subscriber::fmt::init();
     Router::new()
-        .route("/api/telegram", post(server::telegram_webhook_route))
+        .route("/api/common", post(server::telegram_webhook_route))
         .with_state(pool)
 }
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&DATABASE_URL)

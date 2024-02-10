@@ -1,8 +1,8 @@
 use log::{info, warn};
 use sqlx::{Pool, Postgres};
 
-use crate::telegram::db::{Chat as ChatDB, ChatId, Member as MemberDB, MemberId};
-use crate::telegram::request::{Chat as ChatRequest, User as UserRequest};
+use crate::common::db::{Chat as ChatDB, ChatId, Member as MemberDB, MemberId};
+use crate::common::request::{Chat as ChatRequest, User as UserRequest};
 
 #[derive(Debug, PartialEq)]
 pub enum UserServiceError<'a> {

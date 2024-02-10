@@ -1,6 +1,6 @@
-use crate::core::command::parse_command;
-use crate::core::lexer::{tokenize, Token};
-use crate::telegram::request::RequestPayload;
+use crate::util::command_parser::parse_command;
+use crate::util::lexer::{tokenize, Token};
+use crate::common::request::RequestPayload;
 
 pub fn tokens_from_request(request: &RequestPayload) -> Option<Vec<Token>> {
     request.any_message().direct().ext.raw_text().map(tokenize)

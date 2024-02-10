@@ -6,18 +6,20 @@ mod helper_functions {
     use sqlx::PgPool;
     use tower::ServiceExt;
 
-    use crate::telegram::request::RequestPayload;
+    use crate::common::request::RequestPayload;
     use crate::web_app;
 
     pub async fn make_telegram_request(pool: PgPool, message: &RequestPayload) -> Response<Body> {
         web_app(pool.clone())
             .await
-            .oneshot(Request::builder()
-                .uri("/api/telegram")
-                .method(http::Method::POST)
-                .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                .body(Body::from(serde_json::to_string(message).unwrap()))
-                .unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/common")
+                    .method(http::Method::POST)
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(serde_json::to_string(message).unwrap()))
+                    .unwrap(),
+            )
             .await
             .unwrap()
     }
@@ -25,7 +27,7 @@ mod helper_functions {
 
 #[cfg(test)]
 mod body_fixtures {
-    use crate::telegram::request::{
+    use crate::common::request::{
         Chat, Message, MessageBase, MessageBody, MessageExt, RequestPayload, User,
     };
 
@@ -75,15 +77,172 @@ mod body_fixtures {
 #[cfg(test)]
 mod tests {
     use axum::http::StatusCode;
-    use sqlx::{PgPool, query, Row};
+    use sqlx::{query, PgPool, Row};
 
     use crate::tests::test_server::body_fixtures::{
         default_chat, default_origin_direct_text_message, default_user,
     };
     use crate::tests::test_server::helper_functions::make_telegram_request;
-    // TODO: Test for change names of existed user
-    // TODO: Test for change title of existed chat
-    // TODO: Test for skip messages from bot users
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(path = "sqlx_fixtures", scripts("default_chat"))
+    )]
+    async fn test_change_chat(pool: PgPool) {
+        assert_eq!(
+            query("SELECT name from chats where chat_id = -333322221111")
+                .fetch_one(&pool)
+                .await
+                .ok()
+                .map(|x| x.get::<String, _>("name"))
+                .unwrap(),
+            String::from("SomeChat"),
+        );
+        for (title, username, first_name, last_name, expected_name) in [
+            (
+                Some(String::from("Title")),
+                Some(String::from("UserName")),
+                Some(String::from("FirstName")),
+                Some(String::from("LastName")),
+                "Title",
+            ),
+            (
+                None,
+                Some(String::from("UserName")),
+                Some(String::from("FirstName")),
+                Some(String::from("LastName")),
+                "UserName",
+            ),
+            (
+                None,
+                None,
+                Some(String::from("FirstName")),
+                Some(String::from("LastName")),
+                "FirstName LastName",
+            ),
+            (
+                None,
+                None,
+                None,
+                Some(String::from("LastName")),
+                "-333322221111",
+            ),
+            (
+                None,
+                None,
+                Some(String::from("FirstName")),
+                None,
+                "-333322221111",
+            ),
+            (None, None, None, None, "-333322221111"),
+        ] {
+            let mut chat = default_chat();
+            chat.title = title;
+            chat.username = username;
+            chat.first_name = first_name;
+            chat.last_name = last_name;
+            let message = default_origin_direct_text_message(default_user(), chat, "some_text");
+            let response = make_telegram_request(pool.clone(), &message).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                query("SELECT name from chats where chat_id = -333322221111")
+                    .fetch_one(&pool)
+                    .await
+                    .ok()
+                    .map(|x| x.get::<String, _>("name"))
+                    .unwrap(),
+                String::from(expected_name),
+            );
+        }
+    }
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(path = "sqlx_fixtures", scripts("default_user"))
+    )]
+    async fn test_change_user(pool: PgPool) {
+        assert_eq!(
+            query(
+                "SELECT username, last_name, first_name from members where member_id = 111222333"
+            )
+            .fetch_one(&pool)
+            .await
+            .ok()
+            .map(|x| (
+                x.get::<String, _>("username"),
+                x.get::<String, _>("first_name"),
+                x.get::<String, _>("last_name")
+            ))
+            .unwrap(),
+            (
+                String::from("UserName"),
+                String::from("FirstName"),
+                String::from("LastName")
+            )
+        );
+        for (username, first_name, last_name, exp_username, exp_first_name, exp_last_name) in [
+            (
+                Some(String::from("WrongUserName")),
+                Some(String::from("WrongFirstName")),
+                Some(String::from("WrongLastName")),
+                String::from("WrongUserName"),
+                String::from("WrongFirstName"),
+                String::from("WrongLastName"),
+            ),
+            (
+                Some(String::from("WrongUserName")),
+                Some(String::from("WrongFirstName")),
+                None,
+                String::from("WrongUserName"),
+                String::from("WrongFirstName"),
+                String::from(""),
+            ),
+            (
+                None,
+                Some(String::from("WrongFirstName")),
+                None,
+                String::from(""),
+                String::from("WrongFirstName"),
+                String::from(""),
+            ),
+            (
+                None,
+                None,
+                None,
+                String::from(""),
+                String::from(""),
+                String::from(""),
+            ),
+        ] {
+            let mut user = default_user().clone();
+            user.username = username;
+            user.first_name = first_name;
+            user.last_name = last_name;
+            let message = default_origin_direct_text_message(user, default_chat(), "some_text");
+            let response = make_telegram_request(pool.clone(), &message).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                query(
+                    "SELECT username, last_name, first_name from members where member_id = 111222333"
+                )
+                    .fetch_one(&pool)
+                    .await
+                    .ok()
+                    .map(|x| (
+                        x.get::<String, _>("username"),
+                        x.get::<String, _>("first_name"),
+                        x.get::<String, _>("last_name")
+                    ))
+                    .unwrap(),
+                (
+                    exp_username,
+                    exp_first_name,
+                    exp_last_name,
+                )
+            );
+        }
+    }
+
     #[sqlx::test(migrations = "./migrations")]
     async fn test_create_user(pool: PgPool) {
         let message =
@@ -108,6 +267,15 @@ mod tests {
                 .map(|x| x.get::<i64, _>("member_id")),
             None
         );
+        assert!(!query(
+            "SELECT EXISTS (SELECT chats_to_members.* FROM chats_to_members \
+            JOIN members ON members.id = chats_to_members.member_id \
+            WHERE members.member_id = 111222333);"
+        )
+        .fetch_one(&pool)
+        .await
+        .map(|x| x.get::<bool, _>("exists"))
+        .unwrap());
         let response = make_telegram_request(pool.clone(), &message).await;
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
@@ -127,6 +295,15 @@ mod tests {
                 .ok()
                 .map(|x| x.get::<i64, _>("member_id")),
             Some(user.id)
+        );
+        assert!(query(
+            "SELECT EXISTS (SELECT chats_to_members.* FROM chats_to_members \
+            JOIN members ON members.id = chats_to_members.member_id \
+            WHERE members.member_id = 111222333);"
         )
+        .fetch_one(&pool)
+        .await
+        .map(|x| x.get::<bool, _>("exists"))
+        .unwrap())
     }
 }
