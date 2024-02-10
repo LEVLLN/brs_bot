@@ -33,7 +33,6 @@ pub fn chat_title(chat: &ChatRequest) -> String {
     }
 }
 
-
 pub async fn process_chat<'a>(
     pool: &Pool<Postgres>,
     chat: &'a ChatRequest,

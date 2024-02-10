@@ -8,11 +8,23 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://bread_bot:bread_bot@localhost/test_bread_bot
 
 jobs:
   build:
 
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: bread_bot
+          POSTGRES_PASSWORD: bread_bot
+          POSTGRES_DB: test_bread_bot
+        ports:
+          - 5432:5432
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
     - uses: actions/checkout@v3
