@@ -90,7 +90,7 @@ mod tests {
     )]
     async fn test_change_chat(pool: PgPool) {
         assert_eq!(
-            query("SELECT name from chats where chat_id = -333322221111")
+            query("SELECT name from chats where chat_id = -333322221112")
                 .fetch_one(&pool)
                 .await
                 .ok()
@@ -125,18 +125,19 @@ mod tests {
                 None,
                 None,
                 Some(String::from("LastName")),
-                "-333322221111",
+                "-333322221112",
             ),
             (
                 None,
                 None,
                 Some(String::from("FirstName")),
                 None,
-                "-333322221111",
+                "-333322221112",
             ),
-            (None, None, None, None, "-333322221111"),
+            (None, None, None, None, "-333322221112"),
         ] {
             let mut chat = default_chat();
+            chat.id = -333322221112;
             chat.title = title;
             chat.username = username;
             chat.first_name = first_name;
@@ -145,7 +146,7 @@ mod tests {
             let response = make_telegram_request(pool.clone(), &message).await;
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
-                query("SELECT name from chats where chat_id = -333322221111")
+                query("SELECT name from chats where chat_id = -333322221112")
                     .fetch_one(&pool)
                     .await
                     .ok()
@@ -163,7 +164,7 @@ mod tests {
     async fn test_change_user(pool: PgPool) {
         assert_eq!(
             query(
-                "SELECT username, last_name, first_name from members where member_id = 111222333"
+                "SELECT username, last_name, first_name from members where member_id = 111222332"
             )
             .fetch_one(&pool)
             .await
@@ -215,6 +216,7 @@ mod tests {
             ),
         ] {
             let mut user = default_user().clone();
+            user.id = 111222332;
             user.username = username;
             user.first_name = first_name;
             user.last_name = last_name;
@@ -223,7 +225,7 @@ mod tests {
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
                 query(
-                    "SELECT username, last_name, first_name from members where member_id = 111222333"
+                    "SELECT username, last_name, first_name from members where member_id = 111222332"
                 )
                     .fetch_one(&pool)
                     .await
