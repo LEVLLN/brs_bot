@@ -1,18 +1,17 @@
 use axum::{routing::post, Router};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
+use crate::common::http::telegram_webhook_route;
 
 use crate::config::DATABASE_URL;
 
 mod config;
-mod server;
-mod common;
 mod tests;
-mod util;
+mod common;
 
 pub async fn web_app(pool: Pool<Postgres>) -> Router {
     Router::new()
-        .route("/api/common", post(server::telegram_webhook_route))
+        .route("/api/common", post(telegram_webhook_route))
         .with_state(pool)
 }
 

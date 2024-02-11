@@ -1,19 +1,12 @@
 use log::{info, warn};
 use sqlx::{Pool, Postgres};
+use tokio::try_join;
 
 use crate::common::db::{Chat as ChatDB, ChatId, Member as MemberDB, MemberId};
+use crate::common::error::ProcessError;
 use crate::common::request::{Chat as ChatRequest, User as UserRequest};
 
-#[derive(Debug, PartialEq)]
-pub enum UserServiceError<'a> {
-    UserUpdate(&'a i64),
-    ChatNameUpdate(&'a i64),
-    UserCreate(&'a i64),
-    ChatCreate(&'a i64),
-    MemberBindToChat(&'a MemberId, &'a ChatId),
-}
-
-pub fn chat_title(chat: &ChatRequest) -> String {
+fn chat_title(chat: &ChatRequest) -> String {
     match chat {
         ChatRequest {
             title: Some(title), ..
@@ -33,10 +26,10 @@ pub fn chat_title(chat: &ChatRequest) -> String {
     }
 }
 
-pub async fn process_chat<'a>(
+async fn process_chat<'a>(
     pool: &Pool<Postgres>,
-    chat: &'a ChatRequest,
-) -> Result<ChatId, UserServiceError<'a>> {
+    chat: &ChatRequest,
+) -> Result<ChatId, ProcessError<'a>> {
     let new_chat_name = chat_title(chat);
     if let Some((db_id, chat_name)) = ChatDB::id_and_name(pool, chat.id).await {
         if new_chat_name != chat_name {
@@ -50,7 +43,7 @@ pub async fn process_chat<'a>(
                 }
                 Err(err) => {
                     warn!("Chat {} update name error: {}", &chat.id, err.to_string());
-                    Err(UserServiceError::ChatNameUpdate(&chat.id))
+                    Err(ProcessError::Stop)
                 }
             }
         } else {
@@ -67,16 +60,19 @@ pub async fn process_chat<'a>(
             }
             Err(err) => {
                 warn!("Chat {} creating error: {}", &chat.id, err.to_string());
-                Err(UserServiceError::ChatCreate(&chat.id))
+                Err(ProcessError::Stop)
             }
         }
     }
 }
 
-pub async fn process_user<'a>(
+async fn process_user<'a>(
     pool: &Pool<Postgres>,
-    user: &'a UserRequest,
-) -> Result<MemberId, UserServiceError<'a>> {
+    user: &UserRequest,
+) -> Result<MemberId, ProcessError<'a>> {
+    if user.is_bot {
+        return Err(ProcessError::Stop);
+    }
     let (username, first_name, last_name) = (
         user.username.as_deref().unwrap_or_default(),
         user.first_name.as_deref().unwrap_or_default(),
@@ -97,7 +93,7 @@ pub async fn process_user<'a>(
                 }
                 Err(err) => {
                     warn!("Member id: {} update error: {}", user.id, err.to_string());
-                    Err(UserServiceError::UserUpdate(&user.id))
+                    Err(ProcessError::Stop)
                 }
             }
         } else {
@@ -114,27 +110,27 @@ pub async fn process_user<'a>(
             }
             Err(err) => {
                 warn!("Member {} create error: {}", user.id, err.to_string());
-                Err(UserServiceError::UserCreate(&user.id))
+                Err(ProcessError::Stop)
             }
         }
     }
 }
 
-pub async fn bind_user_to_chat<'a>(
+async fn bind_user_to_chat<'a>(
     pool: &Pool<Postgres>,
-    member_id: &'a MemberId,
-    chat_id: &'a ChatId,
-) -> Result<(), UserServiceError<'a>> {
-    if MemberDB::is_in_chat(pool, member_id, chat_id).await {
-        Ok(())
+    member_id: MemberId,
+    chat_id: ChatId,
+) -> Result<(MemberId, ChatId), ProcessError<'a>> {
+    if MemberDB::is_in_chat(pool, &member_id, &chat_id).await {
+        Ok((member_id, chat_id))
     } else {
-        match MemberDB::bind_to_chat(pool, member_id, chat_id).await {
+        match MemberDB::bind_to_chat(pool, &member_id, &chat_id).await {
             Ok(chat_to_member_id) => {
                 info!(
                     "Member {:?} binds to Chat {:?} success. Record: {:?}",
-                    member_id, chat_id, chat_to_member_id
+                    &member_id, &chat_id, chat_to_member_id
                 );
-                Ok(())
+                Ok((member_id, chat_id))
             }
             Err(err) => {
                 warn!(
@@ -143,8 +139,22 @@ pub async fn bind_user_to_chat<'a>(
                     chat_id,
                     err.to_string()
                 );
-                Err(UserServiceError::MemberBindToChat(member_id, chat_id))
+                Err(ProcessError::Stop)
             }
         }
+    }
+}
+
+pub async fn process_user_and_chat<'a>(
+    pool: &Pool<Postgres>,
+    user: &UserRequest,
+    chat: &ChatRequest,
+) -> Result<(MemberId, ChatId), ProcessError<'a>> {
+    match try_join!(
+        process_user(pool, user),
+        process_chat(pool, chat)
+    ) {
+        Ok((member_id, chat_id)) => bind_user_to_chat(pool, member_id, chat_id).await,
+        Err(e) => Err(e),
     }
 }

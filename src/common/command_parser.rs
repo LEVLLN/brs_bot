@@ -7,10 +7,11 @@ use strum_macros::EnumIter;
 
 use Command::*;
 use Token::*;
+use crate::common::error::ProcessError;
 
-use crate::util::lexer::{tokenize, Token};
+use crate::common::lexer::{tokenize, Token};
 
-#[derive(Debug, Eq, PartialEq, EnumIter, Hash)]
+#[derive(Debug, Eq, PartialEq, EnumIter, Hash, Clone)]
 pub enum Command {
     Help,
     Who,
@@ -34,7 +35,7 @@ pub enum Command {
     Advice,
 }
 
-#[derive(Debug, Eq, PartialEq, EnumIter, Hash)]
+#[derive(Debug, Eq, PartialEq, EnumIter, Hash, Clone)]
 pub enum ControlItem {
     Substring,
     Trigger,
@@ -42,7 +43,7 @@ pub enum ControlItem {
     KeyWord,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct CommandProperty<'a> {
     pub command: &'a Command,
     pub control_item: Option<ControlItem>,
@@ -51,7 +52,7 @@ pub struct CommandProperty<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct CommandParseError<'a> {
-    message: &'a str,
+    pub message: &'a str,
 }
 
 fn command_keywords<'a>() -> &'static Vec<(&'a Command, Vec<Token<'a>>)> {
@@ -114,7 +115,7 @@ fn is_bot_call(token: &Token) -> bool {
 fn control_item_from_token<'a>(
     command: &Command,
     control_token: &'a Token,
-) -> Result<Option<ControlItem>, CommandParseError<'a>> {
+) -> Result<Option<ControlItem>, ProcessError<'a>> {
     match command {
         Show | Add | Delete | Remember => match control_token {
             Word("триггер") | Word("триггеры") => Ok(Some(ControlItem::Trigger)),
@@ -123,7 +124,7 @@ fn control_item_from_token<'a>(
             }
             Word("бред") => Ok(Some(ControlItem::MorphWord)),
             Word("ключ") | Word("ключи") => Ok(Some(ControlItem::KeyWord)),
-            _ => Err(CommandParseError {
+            _ => Err(ProcessError::Feedback {
                 message: "Ошибка ввода команды. Команда должна содержать объект для редактирования",
             }),
         },
@@ -155,11 +156,11 @@ fn find_command<'a>(
 
 pub fn parse_command<'a>(
     tokens: &'a [Token<'_>],
-) -> Result<Option<CommandProperty<'a>>, CommandParseError<'a>> {
+) -> Result<Option<CommandProperty<'a>>, ProcessError<'a>> {
     find_command(tokens)
         .map(|(command, _, rest_after_command)| {
-            if [Say, Help, Check, RandomChoose].contains(command) && rest_after_command.is_empty() {
-                Err(CommandParseError {
+            if [Say, Check, RandomChoose].contains(command) && rest_after_command.is_empty() {
+                Err(ProcessError::Feedback {
                     message: "Команда нуждается в указанных значениях для обработки",
                 })
             } else {
@@ -194,10 +195,11 @@ pub fn parse_command<'a>(
 mod tests {
     use Command::*;
 
-    use crate::util::command_parser::{
-        is_bot_call, parse_command, Command, CommandParseError, CommandProperty, ControlItem,
+    use crate::common::command_parser::{
+        is_bot_call, parse_command, Command, CommandProperty, ControlItem,
     };
-    use crate::util::lexer::{tokenize, Token};
+    use crate::common::error::ProcessError;
+    use crate::common::lexer::{tokenize, Token};
 
     #[test]
     fn test_is_bot_call() {
@@ -221,13 +223,13 @@ mod tests {
         for (input, output) in [
             (
                 Some("хлеб проверь"),
-                Err(CommandParseError {
+                Err(ProcessError::Feedback {
                     message: "Команда нуждается в указанных значениях для обработки",
                 }),
             ),
             (
                 Some("хлеб добавь неподстроку?"),
-                Err(CommandParseError {
+                Err(ProcessError::Feedback {
                     message:
                         "Ошибка ввода команды. Команда должна содержать объект для редактирования",
                 }),

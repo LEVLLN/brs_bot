@@ -308,4 +308,13 @@ mod tests {
         .map(|x| x.get::<bool, _>("exists"))
         .unwrap())
     }
+    #[sqlx::test(migrations = "./migrations")]
+    async fn test_command_call(pool: PgPool) {
+        let response = make_telegram_request(
+            pool.clone(),
+            &default_origin_direct_text_message(default_user(), default_chat(), "хлеб хелп"),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }

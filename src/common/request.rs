@@ -106,6 +106,14 @@ impl Message {
             Message::Common {direct} | Message::Replied {direct, ..} => direct
         }
     }
+    pub fn reply(&self) -> Option<&MessageBody> {
+        if let Message::Replied {reply, ..} = self {
+            Some(reply)
+        }
+        else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
