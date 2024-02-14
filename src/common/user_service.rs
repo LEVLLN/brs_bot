@@ -150,10 +150,7 @@ pub async fn process_user_and_chat<'a>(
     user: &UserRequest,
     chat: &ChatRequest,
 ) -> Result<(MemberId, ChatId), ProcessError<'a>> {
-    match try_join!(
-        process_user(pool, user),
-        process_chat(pool, chat)
-    ) {
+    match try_join!(process_user(pool, user), process_chat(pool, chat)) {
         Ok((member_id, chat_id)) => bind_user_to_chat(pool, member_id, chat_id).await,
         Err(e) => Err(e),
     }

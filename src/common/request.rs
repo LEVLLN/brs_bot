@@ -136,4 +136,12 @@ impl RequestPayload {
             RequestPayload::Origin { message, .. } => message,
         }
     }
+    pub fn origin_message(&self) -> Option<&Message> {
+        if let RequestPayload::Origin {message, ..} = self {
+            Some(message)
+        }
+        else {
+            None
+        }
+    }
 }

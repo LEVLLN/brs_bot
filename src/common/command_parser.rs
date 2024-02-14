@@ -1,14 +1,14 @@
 use std::cmp::Reverse;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use Command::*;
 use Token::*;
-use crate::common::error::ProcessError;
 
+use crate::common::error::ProcessError;
 use crate::common::lexer::{tokenize, Token};
 
 #[derive(Debug, Eq, PartialEq, EnumIter, Hash, Clone)]
@@ -35,6 +35,276 @@ pub enum Command {
     Advice,
 }
 
+#[derive(Debug, PartialEq, Clone, Default)]
+struct CommandSetting<'a> {
+    aliases: Vec<&'a str>,
+    description: &'a str,
+    allow_many_values: bool,
+    available_control_items: Option<Vec<ControlItem>>,
+    default_control_item: Option<ControlItem>,
+    required_value: bool,
+    required_reply: bool,
+}
+
+static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'static>>> =
+    Lazy::new(|| {
+        let command_settings = HashMap::from([
+            (
+                &Help,
+                CommandSetting {
+                    aliases: vec!["хелп", "хлеп", "help"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Who,
+                CommandSetting {
+                    aliases: vec!["кто", "who"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &AnswerChance,
+                CommandSetting {
+                    aliases: vec!["процент", "процент срабатывания"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Show,
+                CommandSetting {
+                    aliases: vec!["покажи", "show"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: Some(vec![
+                        ControlItem::Trigger,
+                        ControlItem::MorphWord,
+                        ControlItem::Substring,
+                        ControlItem::KeyWord,
+                    ]),
+                    default_control_item: Some(ControlItem::Substring),
+                    required_value: true,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Add,
+                CommandSetting {
+                    aliases: vec!["добавь", "add"],
+                    description: "",
+                    allow_many_values: true,
+                    available_control_items: Some(vec![ControlItem::MorphWord]),
+                    default_control_item: None,
+                    required_value: true,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Remember,
+                CommandSetting {
+                    aliases: vec!["запомни", "remember"],
+                    description: "",
+                    allow_many_values: true,
+                    available_control_items: Some(vec![
+                        ControlItem::Trigger,
+                        ControlItem::Substring,
+                    ]),
+                    default_control_item: Some(ControlItem::Substring),
+                    required_value: true,
+                    required_reply: true,
+                },
+            ),
+            (
+                &Check,
+                CommandSetting {
+                    aliases: vec!["проверь", "проверка", "check"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: Some(vec![
+                        ControlItem::Trigger,
+                        ControlItem::Substring,
+                    ]),
+                    default_control_item: Some(ControlItem::Substring),
+                    required_value: true,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Say,
+                CommandSetting {
+                    aliases: vec!["скажи", "say"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: true,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Delete,
+                CommandSetting {
+                    aliases: vec!["удали", "delete"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: true,
+                },
+            ),
+            (
+                &Couple,
+                CommandSetting {
+                    aliases: vec!["парочка", "пара", "couple"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Top,
+                CommandSetting {
+                    aliases: vec!["топ", "top"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Channel,
+                CommandSetting {
+                    aliases: vec!["канал", "channel", "all"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &RandomChance,
+                CommandSetting {
+                    aliases: vec!["вероятность", "шанс", "chance"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &RandomChoose,
+                CommandSetting {
+                    aliases: vec!["выбери", "выбор", "choose"],
+                    description: "",
+                    allow_many_values: true,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: true,
+                    required_reply: false,
+                },
+            ),
+            (
+                &GenerateNonsense,
+                CommandSetting {
+                    aliases: vec!["бред", "давай", "nonsense"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: true,
+                },
+            ),
+            (
+                &Morph,
+                CommandSetting {
+                    aliases: vec!["морф", "морфируй", "morph"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: true,
+                    required_reply: false,
+                },
+            ),
+            (
+                &MorphDebug,
+                CommandSetting {
+                    aliases: vec!["морф дебаг", "морфируй дебаг", "morph debug"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: true,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Quote,
+                CommandSetting {
+                    aliases: vec!["цит", "цитата", "quote"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Joke,
+                CommandSetting {
+                    aliases: vec!["анекдот", "анек", "joke"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+            (
+                &Advice,
+                CommandSetting {
+                    aliases: vec!["совет", "advice"],
+                    description: "",
+                    allow_many_values: false,
+                    available_control_items: None,
+                    default_control_item: None,
+                    required_value: false,
+                    required_reply: false,
+                },
+            ),
+        ]);
+        assert!(Command::iter().all(|key| command_settings.contains_key(&key)));
+        command_settings
+    });
+
 #[derive(Debug, Eq, PartialEq, EnumIter, Hash, Clone)]
 pub enum ControlItem {
     Substring,
@@ -58,40 +328,11 @@ pub struct CommandParseError<'a> {
 fn command_keywords<'a>() -> &'static Vec<(&'a Command, Vec<Token<'a>>)> {
     static INSTANCE: OnceCell<Vec<(&Command, Vec<Token>)>> = OnceCell::new();
     INSTANCE.get_or_init(|| {
-        let property = vec![
-            (&Help, vec!["хелп", "хлеп", "help"]),
-            (&Who, vec!["кто", "who"]),
-            (&AnswerChance, vec!["процент", "процент срабатывания"]),
-            (&Show, vec!["покажи", "show"]),
-            (&Add, vec!["добавь", "add"]),
-            (&Remember, vec!["запомни", "запомни значение", "remember"]),
-            (&Delete, vec!["удали", "delete"]),
-            (&Check, vec!["проверь", "проверка", "check"]),
-            (&Say, vec!["скажи", "say"]),
-            (&Couple, vec!["парочка", "пара", "couple"]),
-            (&Top, vec!["топ", "top"]),
-            (&Channel, vec!["канал", "channel", "all"]),
-            (&RandomChance, vec!["вероятность", "шанс", "chance"]),
-            (&RandomChoose, vec!["выбери", "выбор", "choose"]),
-            (&GenerateNonsense, vec!["бред", "давай", "nonsense"]),
-            (&Morph, vec!["морф", "морфируй", "morph"]),
-            (
-                &MorphDebug,
-                vec!["морф дебаг", "морфируй дебаг", "morph debug"],
-            ),
-            (&Quote, vec!["цит", "цитата", "quote"]),
-            (&Joke, vec!["анекдот", "анек", "joke"]),
-            (&Advice, vec!["совет", "advice"]),
-        ];
-        let property_commands = property
+        let mut result: Vec<(&Command, Vec<Token>)> = COMMAND_SETTING_MAP
             .iter()
-            .map(|(command, _)| *command)
-            .collect::<HashSet<_>>();
-        assert!(Command::iter().all(|x| property_commands.contains(&x)));
-        let mut result: Vec<(&Command, Vec<Token>)> = property
-            .iter()
-            .flat_map(|(command, vec_keywords)| {
-                vec_keywords
+            .flat_map(|(command, setting)| {
+                setting
+                    .aliases
                     .iter()
                     .map(|keyword| (*command, tokenize(keyword)))
             })
@@ -203,7 +444,7 @@ mod tests {
 
     #[test]
     fn test_is_bot_call() {
-        for (input, output) in [
+        [
             (Token::Word("хлеб"), true),
             (Token::Word("Хлеб"), true),
             (Token::Word("Хлебушек"), true),
@@ -214,18 +455,29 @@ mod tests {
             (Token::Word("хлебушкек"), false),
             (Token::Newline, false),
             (Token::Punctuation("-"), false),
-        ] {
-            assert_eq!(is_bot_call(&input), output)
-        }
+        ]
+        .iter()
+        .for_each(|(input, output)| {
+            assert_eq!(is_bot_call(input), *output);
+        })
     }
+
     #[test]
     fn test_to_command() {
-        for (input, output) in [
+        [
             (
                 Some("хлеб проверь"),
                 Err(ProcessError::Feedback {
                     message: "Команда нуждается в указанных значениях для обработки",
                 }),
+            ),
+            (
+                Some("хлеб проверь нога"),
+                Ok(Some(CommandProperty {
+                    command: &Check,
+                    control_item: None,
+                    rest: &[Token::Word("нога")],
+                })),
             ),
             (
                 Some("хлеб добавь неподстроку?"),
@@ -235,11 +487,11 @@ mod tests {
                 }),
             ),
             (
-                Some("хлеб добавь подстроку?"),
+                Some("хлеб добавь бред слово"),
                 Ok(Some(CommandProperty {
                     command: &Add,
-                    control_item: Some(ControlItem::Substring),
-                    rest: &[Token::Punctuation("?")],
+                    control_item: Some(ControlItem::MorphWord),
+                    rest: &[Token::Word("слово")],
                 })),
             ),
             // Commands exists
@@ -316,8 +568,10 @@ mod tests {
             (Some("Хлеб"), Ok(None)),
             // Without caption
             (None, Ok(None)),
-        ] {
-            assert_eq!(parse_command(&tokenize(input.unwrap_or_default())), output);
-        }
+        ]
+        .iter()
+        .for_each(|(input, output)| {
+            assert_eq!(parse_command(&tokenize(input.unwrap_or_default())), *output);
+        });
     }
 }

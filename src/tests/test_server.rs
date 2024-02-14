@@ -1,88 +1,12 @@
 #[cfg(test)]
-mod helper_functions {
-    use axum::body::Body;
-    use axum::response::Response;
-    use http::Request;
-    use sqlx::PgPool;
-    use tower::ServiceExt;
-
-    use crate::common::request::RequestPayload;
-    use crate::web_app;
-
-    pub async fn make_telegram_request(pool: PgPool, message: &RequestPayload) -> Response<Body> {
-        web_app(pool.clone())
-            .await
-            .oneshot(
-                Request::builder()
-                    .uri("/api/common")
-                    .method(http::Method::POST)
-                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(serde_json::to_string(message).unwrap()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
-    }
-}
-
-#[cfg(test)]
-mod body_fixtures {
-    use crate::common::request::{
-        Chat, Message, MessageBase, MessageBody, MessageExt, RequestPayload, User,
-    };
-
-    pub fn default_user() -> User {
-        User {
-            id: 111222333,
-            is_bot: false,
-            first_name: Some(String::from("FirstName")),
-            last_name: Some(String::from("LastName")),
-            username: Some(String::from("Username")),
-        }
-    }
-
-    pub fn default_chat() -> Chat {
-        Chat {
-            id: -333322221111,
-            title: Some(String::from("SomeChat")),
-            first_name: None,
-            last_name: None,
-            username: None,
-        }
-    }
-    pub fn default_origin_direct_text_message(
-        user: User,
-        chat: Chat,
-        text: &str,
-    ) -> RequestPayload {
-        RequestPayload::Origin {
-            update_id: 0,
-            message: Message::Common {
-                direct: MessageBody {
-                    base: MessageBase {
-                        message_id: 5555,
-                        from: user,
-                        chat,
-                        forward_from: None,
-                        forward_from_chat: None,
-                    },
-                    ext: MessageExt::Text {
-                        text: String::from(text),
-                    },
-                },
-            },
-        }
-    }
-}
-#[cfg(test)]
 mod tests {
     use axum::http::StatusCode;
     use sqlx::{query, PgPool, Row};
 
-    use crate::tests::test_server::body_fixtures::{
+    use crate::tests::fixtures::request_body_fixtures::{
         default_chat, default_origin_direct_text_message, default_user,
     };
-    use crate::tests::test_server::helper_functions::make_telegram_request;
+    use crate::tests::helpers::helper_functions::make_telegram_request;
 
     #[sqlx::test(
         migrations = "./migrations",
@@ -310,11 +234,14 @@ mod tests {
     }
     #[sqlx::test(migrations = "./migrations")]
     async fn test_command_call(pool: PgPool) {
-        let response = make_telegram_request(
-            pool.clone(),
-            &default_origin_direct_text_message(default_user(), default_chat(), "хлеб хелп"),
-        )
-        .await;
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            make_telegram_request(
+                pool.clone(),
+                &default_origin_direct_text_message(default_user(), default_chat(), "хлеб хелп"),
+            )
+            .await
+            .status(),
+            StatusCode::OK
+        );
     }
 }

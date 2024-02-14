@@ -52,21 +52,21 @@ mod tests {
 
     #[test]
     fn test_text_equals() {
-        for (left_eq, right_eq) in [
+        [
             (Word("строкА"), Word("Строка")),
             (Word("строка"), Word("СТРОКА")),
             (Word("строка"), Word("строка")),
             (Word("string"), Word("STRING")),
             (Word("strinG"), Word("String")),
             (Word("string"), Word("string")),
-        ] {
-            assert_eq!(left_eq, right_eq);
-        }
+        ]
+        .iter()
+        .for_each(|(left_eq, right_eq)| assert_eq!(left_eq, right_eq));
     }
 
     #[test]
     fn test_tokenize() {
-        for (input, output) in [
+        [
             ("some_str", vec![Word("some_str")]),
             ("some_str?", vec![Word("some_str"), Punctuation("?")]),
             ("?some_str", vec![Word("?some_str")]),
@@ -98,8 +98,8 @@ mod tests {
                 ],
             ),
             ("", vec![]),
-        ] {
-            assert_eq!(tokenize(input), output);
-        }
+        ]
+        .iter()
+        .for_each(|(input, output)| assert_eq!(tokenize(input), *output));
     }
 }
