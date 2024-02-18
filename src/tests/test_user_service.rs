@@ -6,7 +6,7 @@ mod tests {
     use crate::tests::fixtures::request_body_fixtures::{
         default_chat, default_origin_direct_text_message, default_user,
     };
-    use crate::tests::helpers::helper_functions::make_telegram_request;
+    use crate::tests::helpers::functions::make_telegram_request;
 
     #[sqlx::test(
         migrations = "./migrations",
@@ -231,17 +231,5 @@ mod tests {
         .await
         .map(|x| x.get::<bool, _>("exists"))
         .unwrap())
-    }
-    #[sqlx::test(migrations = "./migrations")]
-    async fn test_command_call(pool: PgPool) {
-        assert_eq!(
-            make_telegram_request(
-                pool.clone(),
-                &default_origin_direct_text_message(default_user(), default_chat(), "хлеб хелп"),
-            )
-            .await
-            .status(),
-            StatusCode::OK
-        );
     }
 }

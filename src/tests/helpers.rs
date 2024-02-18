@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub mod helper_functions {
+pub mod functions {
     use axum::body::Body;
     use axum::response::Response;
     use http::Request;
@@ -14,7 +14,7 @@ pub mod helper_functions {
             .await
             .oneshot(
                 Request::builder()
-                    .uri("/api/common")
+                    .uri("/api/telegram")
                     .method(http::Method::POST)
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(serde_json::to_string(message).unwrap()))

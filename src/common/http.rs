@@ -5,7 +5,7 @@ use log::warn;
 use serde_json::Value;
 use sqlx::postgres::PgPool;
 
-use crate::common::message_handler::process_message;
+use crate::common::message_service::process_message;
 use crate::common::request::RequestPayload;
 
 pub async fn telegram_webhook_route(

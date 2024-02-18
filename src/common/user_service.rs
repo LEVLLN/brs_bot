@@ -121,7 +121,7 @@ async fn bind_user_to_chat<'a>(
     member_id: MemberId,
     chat_id: ChatId,
 ) -> Result<(MemberId, ChatId), ProcessError<'a>> {
-    if MemberDB::is_in_chat(pool, &member_id, &chat_id).await {
+    if MemberDB::has_binding_chat(pool, &member_id, &chat_id).await {
         Ok((member_id, chat_id))
     } else {
         match MemberDB::bind_to_chat(pool, &member_id, &chat_id).await {

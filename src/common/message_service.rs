@@ -1,12 +1,15 @@
+use std::fmt::Debug;
+use std::iter::Iterator;
+
 use sqlx::PgPool;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::common::command_parser::{parse_command, Command};
+use crate::common::command_service::process_command;
 use crate::common::db::{ChatId, MemberId};
 use crate::common::error::ProcessError;
-use crate::common::lexer::{tokenize, Token};
-use crate::common::request::{Message, RequestPayload};
+use crate::common::lexer::{Token, tokenize};
+use crate::common::request::RequestPayload;
 use crate::common::user_service::process_user_and_chat;
 
 enum AutoEntityRegime {
@@ -14,52 +17,10 @@ enum AutoEntityRegime {
     Substring,
 }
 
-async fn process_command<'a>(
-    tokens: &'a Vec<Token<'a>>,
-    message: &'a Message,
-    member_db_id: &MemberId,
-    chat_db_id: &ChatId,
-) -> Result<(), ProcessError<'a>> {
-    let command_property = match parse_command(tokens) {
-        Ok(Some(command_property)) => command_property,
-        Ok(None) => return Err(ProcessError::Next),
-        Err(err) => return Err(err),
-    };
-    match command_property.command {
-        Command::Help => {}
-        Command::Who => {}
-        Command::AnswerChance => {}
-        Command::Show => {}
-        Command::Add => {}
-        Command::Remember => {}
-        Command::Delete => {}
-        Command::Check => {}
-        Command::Say => {}
-        Command::Couple => {}
-        Command::Top => {}
-        Command::Channel => {}
-        Command::RandomChance => {}
-        Command::RandomChoose => {}
-        Command::GenerateNonsense => {}
-        Command::Morph => {}
-        Command::MorphDebug => {}
-        Command::Quote => {}
-        Command::Joke => {}
-        Command::Advice => {}
-    }
-    println!(
-        "tokens: {:?}, command_property: {:?}",
-        tokens, command_property
-    );
-    Ok(())
-}
-
 async fn process_auto_entity<'a>(regime: AutoEntityRegime) -> Result<(), ProcessError<'a>> {
     match regime {
         AutoEntityRegime::Trigger => Err(ProcessError::Next),
-        AutoEntityRegime::Substring => Err(ProcessError::Feedback {
-            message: "Function not yet",
-        }),
+        AutoEntityRegime::Substring => Err(ProcessError::Next),
     }
 }
 
@@ -76,7 +37,7 @@ enum Processor {
 }
 
 impl Processor {
-    async fn resolve<'a>(
+    async fn handle<'a>(
         &self,
         tokens: &'a Option<Vec<Token<'a>>>,
         request_payload: &'a RequestPayload,
@@ -124,7 +85,7 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
         .map(tokenize);
     for process in Processor::iter() {
         match process
-            .resolve(tokens, request_payload, &member_db_id, &chat_db_id)
+            .handle(tokens, request_payload, &member_db_id, &chat_db_id)
             .await
         {
             Ok(()) => {

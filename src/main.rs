@@ -11,7 +11,7 @@ mod common;
 
 pub async fn web_app(pool: Pool<Postgres>) -> Router {
     Router::new()
-        .route("/api/common", post(telegram_webhook_route))
+        .route("/api/telegram", post(telegram_webhook_route))
         .with_state(pool)
 }
 

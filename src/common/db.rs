@@ -69,7 +69,7 @@ impl Member {
         .map(|x| x.get::<MemberId, _>("id"))
     }
 
-    pub async fn is_in_chat(pool: &Pool<Postgres>, member_id: &MemberId, chat_id: &ChatId) -> bool {
+    pub async fn has_binding_chat(pool: &Pool<Postgres>, member_id: &MemberId, chat_id: &ChatId) -> bool {
         query(
             "SELECT EXISTS (SELECT id FROM chats_to_members \
         WHERE member_id = $1 \
