@@ -1,3 +1,4 @@
+use log::info;
 use std::fmt::Debug;
 use std::iter::Iterator;
 
@@ -8,8 +9,10 @@ use strum_macros::EnumIter;
 use crate::common::command_service::process_command;
 use crate::common::db::{ChatId, MemberId};
 use crate::common::error::ProcessError;
-use crate::common::lexer::{Token, tokenize};
+use crate::common::lexer::{tokenize, Token};
 use crate::common::request::RequestPayload;
+use crate::common::response::ResponseMessage;
+use crate::common::telegram_client::send_message;
 use crate::common::user_service::process_user_and_chat;
 
 enum AutoEntityRegime {
@@ -17,14 +20,16 @@ enum AutoEntityRegime {
     Substring,
 }
 
-async fn process_auto_entity<'a>(regime: AutoEntityRegime) -> Result<(), ProcessError<'a>> {
+async fn process_auto_entity<'a>(
+    regime: AutoEntityRegime,
+) -> Result<ResponseMessage<'a>, ProcessError<'a>> {
     match regime {
         AutoEntityRegime::Trigger => Err(ProcessError::Next),
         AutoEntityRegime::Substring => Err(ProcessError::Next),
     }
 }
 
-async fn process_auto_morph<'a>() -> Result<(), ProcessError<'a>> {
+async fn process_auto_morph<'a>() -> Result<ResponseMessage<'a>, ProcessError<'a>> {
     Err(ProcessError::Next)
 }
 
@@ -43,7 +48,7 @@ impl Processor {
         request_payload: &'a RequestPayload,
         member_db_id: &MemberId,
         chat_db_id: &ChatId,
-    ) -> Result<(), ProcessError<'a>> {
+    ) -> Result<ResponseMessage<'a>, ProcessError<'a>> {
         match self {
             Processor::Command => match tokens {
                 Some(_tokens) if !_tokens.is_empty() => {
@@ -88,20 +93,25 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
             .handle(tokens, request_payload, &member_db_id, &chat_db_id)
             .await
         {
-            Ok(()) => {
-                println!("{:?} processed successful", process);
+            Ok(response_message) => {
+                info!(
+                    "{:?} processed successful. Result: {:?}",
+                    process, response_message
+                );
+                send_message(&response_message).await;
                 break;
             }
             Err(error) => match error {
                 ProcessError::Stop => {
+                    info!("{:?} was stopped", process);
+                    break;
+                }
+                ProcessError::Feedback { message } => {
+                    info!("User sends feedback {:?}", message);
                     break;
                 }
                 ProcessError::Next => {
-                    println!("{:?} was skipped, go next", process)
-                }
-                ProcessError::Feedback { message } => {
-                    println!("User sends feedback {:?}", message);
-                    break;
+                    info!("{:?} was skipped, go next", process);
                 }
             },
         }

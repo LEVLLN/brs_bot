@@ -26,7 +26,7 @@ pub struct Content {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct MessageBase {
-    pub message_id: u32,
+    pub message_id: i64,
     pub from: User,
     pub chat: Chat,
     pub forward_from: Option<User>,

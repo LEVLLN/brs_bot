@@ -7,3 +7,5 @@ pub mod lexer;
 pub mod message_service;
 pub mod request;
 pub mod user_service;
+pub mod response;
+pub mod telegram_client;
