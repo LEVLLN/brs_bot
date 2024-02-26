@@ -1,4 +1,3 @@
-use log::warn;
 use once_cell::sync::Lazy;
 use reqwest::Client;
 
@@ -8,9 +7,9 @@ use crate::config::TELEGRAM_URL;
 static TELEGRAM_CLIENT: Lazy<Client> = Lazy::new(Client::new);
 
 pub async fn send_message<'a>(response_message: &ResponseMessage<'a>) {
-    if let Err(err) = TELEGRAM_CLIENT
+    match TELEGRAM_CLIENT
         .post(
-            TELEGRAM_URL
+            TELEGRAM_URL.get().unwrap()
                 .join(match response_message {
                     ResponseMessage::Text { .. } => "sendMessage",
                     ResponseMessage::Photo { .. } => "sendPhoto",
@@ -21,6 +20,12 @@ pub async fn send_message<'a>(response_message: &ResponseMessage<'a>) {
         .send()
         .await
     {
-        warn!("Message sending error. details: {err}", err = err);
-    };
+        Ok(x) => {
+            // TODO: just return Result<Json, Error>
+            println!("{:?}, {:?}", &x.url().to_string(), &x.text().await)
+        }
+        Err(err) => {
+            println!("{}", err)
+        }
+    }
 }

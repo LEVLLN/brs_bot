@@ -1,4 +1,4 @@
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use url::Url;
 
 pub static DATABASE_URL: Lazy<String> = Lazy::new(|| {
@@ -15,26 +15,29 @@ pub static DATABASE_URL: Lazy<String> = Lazy::new(|| {
     database_str
 });
 
-static TELEGRAM_BOT_TOKEN: Lazy<String> = Lazy::new(|| {
-    format!(
-        "/{bot_id}:{bot_token}/",
-        bot_id = match std::env::var("TELEGRAM_BOT_ID") {
-            Ok(bot_id) => bot_id,
-            Err(_) => panic!("TELEGRAM_BOT_ID environment variable does not exists!"),
-        },
-        bot_token = match std::env::var("TELEGRAM_BOT_TOKEN") {
-            Ok(bot_token) => bot_token,
-            Err(_) => panic!("TELEGRAM_BOT_TOKEN environment variable does not exists!"),
-        }
-    )
-});
+pub static TELEGRAM_URL: OnceCell<Url> = OnceCell::new();
 
-pub static TELEGRAM_URL: Lazy<Url> = Lazy::new(|| {
-    match Url::parse("https://api.telegram.org")
-        .unwrap()
-        .join(&TELEGRAM_BOT_TOKEN)
+pub fn init_telegram_url(override_url: Option<String>) {
+    #[cfg(test)]
+    { TELEGRAM_URL.get_or_init(|| Url::parse(&override_url.unwrap()).unwrap()); }
+    #[cfg(not(test))]
     {
-        Ok(telegram_url) => telegram_url,
-        Err(e) => panic!("TELEGRAM_URL with BOT_TOKEN build failed: {}", e),
+        let mut auth_token = String::with_capacity(80);
+        auth_token.push('/');
+        auth_token.push_str(&std::env::var("TELEGRAM_BOT_ID").unwrap());
+        auth_token.push(':');
+        auth_token.push_str(&std::env::var("TELEGRAM_BOT_TOKEN").unwrap());
+        auth_token.push('/');
+        TELEGRAM_URL.get_or_init(|| {
+            match Url::parse("https://api.telegram.org")
+                .unwrap()
+                .join(&auth_token) {
+                Ok(telegram_url) => {
+                    println!("{}", telegram_url.to_string().len());
+                    telegram_url
+                }
+                Err(e) => panic!("TELEGRAM_URL with BOT_TOKEN build failed: {}", e),
+            }
+        });
     }
-});
+}

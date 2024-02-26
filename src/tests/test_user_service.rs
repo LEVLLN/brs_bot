@@ -6,7 +6,7 @@ mod tests {
     use crate::tests::fixtures::request_body_fixtures::{
         default_chat, default_origin_direct_text_message, default_user,
     };
-    use crate::tests::helpers::functions::make_telegram_request;
+    use crate::tests::helpers::functions::api_telegram_request;
 
     #[sqlx::test(
         migrations = "./migrations",
@@ -67,7 +67,7 @@ mod tests {
             chat.first_name = first_name;
             chat.last_name = last_name;
             let message = default_origin_direct_text_message(default_user(), chat, "some_text");
-            let response = make_telegram_request(pool.clone(), &message).await;
+            let response = api_telegram_request(pool.clone(), &message).await;
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
                 query("SELECT name from chats where chat_id = -333322221112")
@@ -145,7 +145,7 @@ mod tests {
             user.first_name = first_name;
             user.last_name = last_name;
             let message = default_origin_direct_text_message(user, default_chat(), "some_text");
-            let response = make_telegram_request(pool.clone(), &message).await;
+            let response = api_telegram_request(pool.clone(), &message).await;
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
                 query(
@@ -202,7 +202,7 @@ mod tests {
         .await
         .map(|x| x.get::<bool, _>("exists"))
         .unwrap());
-        let response = make_telegram_request(pool.clone(), &message).await;
+        let response = api_telegram_request(pool.clone(), &message).await;
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             query("SELECT chat_id from chats where chat_id = $1")
