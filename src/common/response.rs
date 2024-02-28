@@ -13,17 +13,17 @@ pub struct BaseBody {
 
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(untagged)]
-pub enum ResponseMessage<'a> {
+pub enum ResponseMessage {
     Text{
         #[serde(flatten)]
         base_body: BaseBody,
-        text: &'a str,
-        link_preview_options: Option<LinkPreviewOption>
+        text: String,
+        link_preview_options: LinkPreviewOption
     },
-    Photo {
+    _Photo {
         #[serde(flatten)]
         base_body: BaseBody,
-        photo: &'a str,
-        caption: Option<&'a str>
+        photo: String,
+        caption: Option<String>
     }
 }

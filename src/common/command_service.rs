@@ -1,17 +1,20 @@
 use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
+use sqlx::PgPool;
 
 use crate::common::command_parser::{
-    Command, COMMAND_SETTING_MAP, CommandContainer, CommandSetting, find_command, parse_command,
+    find_command, parse_command, Command, CommandContainer, CommandSetting, COMMAND_SETTING_MAP,
 };
-use crate::common::db::{ChatId, MemberId};
+use crate::common::db::{ChatId, ChatToMemberId, MemberId};
 use crate::common::error::ProcessError;
-use crate::common::lexer::Token;
+use crate::common::lexer::{tokens_to_string, Token};
 use crate::common::request::{Message, MessageBody};
 use crate::common::response::{BaseBody, LinkPreviewOption, ResponseMessage};
+use crate::common::user_service::{pretty_username, random_user_from_chat};
 
-static HELP_MAIN: &str = "Привет. Я бот и меня зовут Хлебушек.\n\
+static HELP_MAIN: Lazy<String> = Lazy::new(|| {
+    String::from("Привет. Я бот и меня зовут Хлебушек.\n\
     Я создан для того, чтобы делать ваши групповые чаты чуточку веселее. \
     Распознаю команды и рандомно и весело отвечаю на сообщения. \
     Достаточно добавить меня в группу и дать доступ на чтение сообщений. \
@@ -25,9 +28,12 @@ static HELP_MAIN: &str = "Привет. Я бот и меня зовут Хле�
     - Посмотреть детальную информацию о команде: 'хлеб хелп [команда]'\n\n\
     \t- значение для [команда] можно найти из списка\n\n\
     - Посмотреть информацию о механике и терминологии бота: 'хлеб хелп механика'\n\n\
-    Продвигать проект и оставлять пожелания можно на boosty: https://boosty.to/levkey/donate";
+    Продвигать проект и оставлять пожелания можно на boosty: https://boosty.to/levkey/donate")
+});
 
-static HELP_INSTRUCTIONS: &str = "Основные элементы:\n\nЗначение \
+static HELP_INSTRUCTIONS: Lazy<String> = Lazy::new(|| {
+    String::from(
+        "Основные элементы:\n\nЗначение \
     - это текст, картинка, видео, гифка, стикер или голосовое сообщение, \
     которое можно у меня сохранить и которые я буду подкидывать в момент, \
     когда ты меньше всего этого ожидаешь :)\n\n\
@@ -46,7 +52,9 @@ static HELP_INSTRUCTIONS: &str = "Основные элементы:\n\nЗнач
     Алиас - это псевдонимы команд. То есть, у одной команды может быть несколько псевдонимов, \
     по которым можно её вызвать. Это придумано для удобства\n\n\
     Объект редактирования - это обобщенное название `ключу`, `триггеру`, `бреду` и `подстроке`. \
-    В некоторых командах их стоит перечислить для операций добавления или удаления";
+    В некоторых командах их стоит перечислить для операций добавления или удаления",
+    )
+});
 
 fn command_details_help(command_setting: &CommandSetting) -> String {
     String::new()
@@ -125,9 +133,9 @@ static COMMANDS_HELP_LIST: Lazy<String> = Lazy::new(|| {
 });
 
 fn help<'a>(
-    command_container: &CommandContainer,
+    command_container: &CommandContainer<'a>,
     direct_message: &MessageBody,
-) -> Result<ResponseMessage<'a>, ProcessError<'a>> {
+) -> Result<ResponseMessage, ProcessError<'a>> {
     Ok(ResponseMessage::Text {
         base_body: BaseBody {
             chat_id: direct_message.base.chat.id,
@@ -135,51 +143,71 @@ fn help<'a>(
         },
         text: match command_container.values[0] {
             [argument, ..] if argument == &Token::Word("механика") => {
-                HELP_INSTRUCTIONS
+                HELP_INSTRUCTIONS.to_owned()
             }
             [argument, ..] if argument == &Token::Word("команды") => {
-                &COMMANDS_HELP_LIST
+                COMMANDS_HELP_LIST.to_owned()
             }
             tokens => match find_command(tokens) {
-                None => HELP_MAIN,
-                Some((command, _)) => COMMAND_HELP_MAP.get(command).unwrap(),
+                None => HELP_MAIN.to_owned(),
+                Some((command, _)) => COMMAND_HELP_MAP.get(command).unwrap().to_owned(),
             },
         },
-        link_preview_options: Some(LinkPreviewOption {is_disabled: true}),
+        link_preview_options: LinkPreviewOption { is_disabled: true },
+    })
+}
+
+async fn who<'a>(
+    pool: &PgPool,
+    command_container: &CommandContainer<'a>,
+    chat_db_id: &ChatId,
+    direct_message: &MessageBody,
+) -> Result<ResponseMessage, ProcessError<'a>> {
+    Ok(ResponseMessage::Text {
+        text: pretty_username(&random_user_from_chat(pool, chat_db_id).await?)
+            + &match tokens_to_string(command_container.rest, true) {
+                rest if rest.is_empty() => String::from(""),
+                rest => String::from(" ") + &rest,
+            },
+        link_preview_options: LinkPreviewOption { is_disabled: false },
+        base_body: BaseBody {
+            chat_id: direct_message.base.chat.id,
+            reply_to_message_id: Some(direct_message.base.message_id),
+        },
     })
 }
 
 pub async fn process_command<'a>(
     tokens: &'a [Token<'a>],
     message: &'a Message,
-    member_db_id: &MemberId,
+    pool: &PgPool,
+    _member_db_id: &MemberId,
     chat_db_id: &ChatId,
-) -> Result<ResponseMessage<'a>, ProcessError<'a>> {
+    _chat_to_member_db_id: &ChatToMemberId,
+) -> Result<ResponseMessage, ProcessError<'a>> {
     match parse_command(tokens, message.reply().is_some()) {
-        Ok(command_container) => match command_container.command {
+        Ok(command_container) => match &command_container.command {
             Command::Help => help(&command_container, message.direct()),
-            Command::Who => {Err(ProcessError::Next)}
-            Command::AnswerChance => {Err(ProcessError::Next)}
-            Command::Show => {Err(ProcessError::Next)}
-            Command::Add => {Err(ProcessError::Next)}
-            Command::Remember => {Err(ProcessError::Next)}
-            Command::Delete => {Err(ProcessError::Next)}
-            Command::Check => {Err(ProcessError::Next)}
-            Command::Say => {Err(ProcessError::Next)}
-            Command::Couple => {Err(ProcessError::Next)}
-            Command::Top => {Err(ProcessError::Next)}
-            Command::Channel => {Err(ProcessError::Next)}
-            Command::RandomChance => {Err(ProcessError::Next)}
-            Command::RandomChoose => {Err(ProcessError::Next)}
-            Command::GenerateNonsense => {Err(ProcessError::Next)}
-            Command::Morph => {Err(ProcessError::Next)}
-            Command::MorphDebug => {Err(ProcessError::Next)}
-            Command::Quote => {Err(ProcessError::Next)}
-            Command::Joke => {Err(ProcessError::Next)}
-            Command::Advice => {Err(ProcessError::Next)}
+            Command::Who => who(pool, &command_container, chat_db_id, message.direct()).await,
+            Command::AnswerChance => Err(ProcessError::Next),
+            Command::Show => Err(ProcessError::Next),
+            Command::Add => Err(ProcessError::Next),
+            Command::Remember => Err(ProcessError::Next),
+            Command::Delete => Err(ProcessError::Next),
+            Command::Check => Err(ProcessError::Next),
+            Command::Say => Err(ProcessError::Next),
+            Command::Couple => Err(ProcessError::Next),
+            Command::Top => Err(ProcessError::Next),
+            Command::Channel => Err(ProcessError::Next),
+            Command::RandomChance => Err(ProcessError::Next),
+            Command::RandomChoose => Err(ProcessError::Next),
+            Command::GenerateNonsense => Err(ProcessError::Next),
+            Command::Morph => Err(ProcessError::Next),
+            Command::MorphDebug => Err(ProcessError::Next),
+            Command::Quote => Err(ProcessError::Next),
+            Command::Joke => Err(ProcessError::Next),
+            Command::Advice => Err(ProcessError::Next),
         },
-        Err(err) => {
-            Err(err)
-        }
+        Err(err) => Err(err),
     }
 }

@@ -7,7 +7,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::common::command_service::process_command;
-use crate::common::db::{ChatId, MemberId};
+use crate::common::db::{ChatId, ChatToMemberId, MemberId};
 use crate::common::error::ProcessError;
 use crate::common::lexer::{tokenize, Token};
 use crate::common::request::RequestPayload;
@@ -22,14 +22,14 @@ enum AutoEntityRegime {
 
 async fn process_auto_entity<'a>(
     regime: AutoEntityRegime,
-) -> Result<ResponseMessage<'a>, ProcessError<'a>> {
+) -> Result<ResponseMessage, ProcessError<'a>> {
     match regime {
         AutoEntityRegime::Trigger => Err(ProcessError::Next),
         AutoEntityRegime::Substring => Err(ProcessError::Next),
     }
 }
 
-async fn process_auto_morph<'a>() -> Result<ResponseMessage<'a>, ProcessError<'a>> {
+async fn process_auto_morph<'a>() -> Result<ResponseMessage, ProcessError<'a>> {
     Err(ProcessError::Next)
 }
 
@@ -46,17 +46,21 @@ impl Processor {
         &self,
         tokens: &'a Option<Vec<Token<'a>>>,
         request_payload: &'a RequestPayload,
+        pool: &PgPool,
         member_db_id: &MemberId,
         chat_db_id: &ChatId,
-    ) -> Result<ResponseMessage<'a>, ProcessError<'a>> {
+        chat_to_member_db_id: &ChatToMemberId,
+    ) -> Result<ResponseMessage, ProcessError<'a>> {
         match self {
             Processor::Command => match tokens {
                 Some(_tokens) if !_tokens.is_empty() => {
                     process_command(
                         _tokens,
                         request_payload.any_message(),
+                        pool,
                         member_db_id,
                         chat_db_id,
+                        chat_to_member_db_id,
                     )
                     .await
                 }
@@ -70,7 +74,7 @@ impl Processor {
 }
 
 pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload) {
-    let (member_db_id, chat_db_id) = match process_user_and_chat(
+    let (member_db_id, chat_db_id, chat_to_member_db_id) = match process_user_and_chat(
         pool,
         &request_payload.any_message().direct().base.from,
         &request_payload.any_message().direct().base.chat,
@@ -90,15 +94,15 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
         .map(tokenize);
     for process in Processor::iter() {
         match process
-            .handle(tokens, request_payload, &member_db_id, &chat_db_id)
+            .handle(tokens, request_payload, pool, &member_db_id, &chat_db_id, &chat_to_member_db_id)
             .await
         {
             Ok(response_message) => {
                 info!(
-                    "{:?} processed successful. Result: {:?}",
+                    "{:?} success completed. Result: {:?}",
                     process, response_message
                 );
-                send_message(&response_message).await;
+                send_message(&response_message).await.expect("TODO: panic message");
                 break;
             }
             Err(error) => match error {

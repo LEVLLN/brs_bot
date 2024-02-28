@@ -22,6 +22,25 @@ impl<'a> PartialEq for Token<'a> {
     }
 }
 
+pub fn tokens_to_string<'a>(tokens: &'a [Token<'a>], remove_question_mark: bool) -> String {
+    tokens
+        .iter()
+        .enumerate()
+        .fold(String::new(), |result, (index, token)| match token {
+            Newline => result + "\n",
+            Word(word) if result.is_empty() => result + word,
+            Word(word) => result + " " + word,
+            Punctuation(punct)
+                if remove_question_mark && punct.eq(&"?") && tokens.len() - 1 == index =>
+            {
+                result
+            }
+            Punctuation(punct) => result + punct,
+            Symbol(symbol) if result.is_empty() => result + symbol,
+            Symbol(symbol) => result + " " + symbol,
+        })
+}
+
 pub fn tokenize(text: &str) -> Vec<Token> {
     use Token::*;
     let mut token_list = vec![];

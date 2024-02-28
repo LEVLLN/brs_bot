@@ -1,11 +1,12 @@
 #[cfg(test)]
 pub mod functions {
+    use std::net::TcpListener;
+
     use axum::body::Body;
     use axum::response::Response;
     use http::Request;
     use once_cell::sync::Lazy;
-    use sqlx::PgPool;
-    use std::net::TcpListener;
+    use sqlx::{PgPool, Pool, Postgres, query_as};
     use tower::ServiceExt;
     use wiremock::MockServer;
 
@@ -23,7 +24,16 @@ pub mod functions {
         init_telegram_url(Some(server.uri()));
         server
     }
-
+    
+    pub async fn chat_by_chat_id(pool: &Pool<Postgres>, chat_id: i64) -> Option<crate::common::db::Chat> {
+        query_as::<_, crate::common::db::Chat>(&format!(
+            "SELECT id, chat_id, name FROM chats WHERE chat_id = {chat_id};"
+        ))
+            .fetch_one(pool)
+            .await
+            .ok()
+    }
+    
     pub async fn api_telegram_request(pool: PgPool, message: &RequestPayload) -> Response<Body> {
         web_app(pool.clone())
             .await

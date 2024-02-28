@@ -4,7 +4,8 @@ mod tests {
     use sqlx::{query, PgPool, Row};
 
     use crate::tests::fixtures::request_body_fixtures::{
-        default_chat, default_origin_direct_text_message, default_user,
+        default_chat, default_origin_direct_text_message, default_user, EXISTED_CHAT_ID,
+        EXISTED_USER_ID,
     };
     use crate::tests::helpers::functions::api_telegram_request;
 
@@ -14,7 +15,8 @@ mod tests {
     )]
     async fn test_change_chat(pool: PgPool) {
         assert_eq!(
-            query("SELECT name from chats where chat_id = -333322221112")
+            query("SELECT name from chats where chat_id = $1")
+                .bind(EXISTED_CHAT_ID)
                 .fetch_one(&pool)
                 .await
                 .ok()
@@ -49,19 +51,19 @@ mod tests {
                 None,
                 None,
                 Some(String::from("LastName")),
-                "-333322221112",
+                &EXISTED_CHAT_ID.to_string(),
             ),
             (
                 None,
                 None,
                 Some(String::from("FirstName")),
                 None,
-                "-333322221112",
+                &EXISTED_CHAT_ID.to_string(),
             ),
-            (None, None, None, None, "-333322221112"),
+            (None, None, None, None, &EXISTED_CHAT_ID.to_string()),
         ] {
             let mut chat = default_chat();
-            chat.id = -333322221112;
+            chat.id = EXISTED_CHAT_ID;
             chat.title = title;
             chat.username = username;
             chat.first_name = first_name;
@@ -70,7 +72,8 @@ mod tests {
             let response = api_telegram_request(pool.clone(), &message).await;
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
-                query("SELECT name from chats where chat_id = -333322221112")
+                query("SELECT name from chats where chat_id = $1")
+                    .bind(EXISTED_CHAT_ID)
                     .fetch_one(&pool)
                     .await
                     .ok()
@@ -87,18 +90,17 @@ mod tests {
     )]
     async fn test_change_user(pool: PgPool) {
         assert_eq!(
-            query(
-                "SELECT username, last_name, first_name from members where member_id = 111222332"
-            )
-            .fetch_one(&pool)
-            .await
-            .ok()
-            .map(|x| (
-                x.get::<String, _>("username"),
-                x.get::<String, _>("first_name"),
-                x.get::<String, _>("last_name")
-            ))
-            .unwrap(),
+            query("SELECT username, last_name, first_name from members where member_id = $1")
+                .bind(EXISTED_USER_ID)
+                .fetch_one(&pool)
+                .await
+                .ok()
+                .map(|x| (
+                    x.get::<String, _>("username"),
+                    x.get::<String, _>("first_name"),
+                    x.get::<String, _>("last_name")
+                ))
+                .unwrap(),
             (
                 String::from("UserName"),
                 String::from("FirstName"),
@@ -140,7 +142,7 @@ mod tests {
             ),
         ] {
             let mut user = default_user().clone();
-            user.id = 111222332;
+            user.id = EXISTED_USER_ID;
             user.username = username;
             user.first_name = first_name;
             user.last_name = last_name;
@@ -148,9 +150,8 @@ mod tests {
             let response = api_telegram_request(pool.clone(), &message).await;
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
-                query(
-                    "SELECT username, last_name, first_name from members where member_id = 111222332"
-                )
+                query("SELECT username, last_name, first_name from members where member_id = $1")
+                    .bind(EXISTED_USER_ID)
                     .fetch_one(&pool)
                     .await
                     .ok()
@@ -160,11 +161,7 @@ mod tests {
                         x.get::<String, _>("last_name")
                     ))
                     .unwrap(),
-                (
-                    exp_username,
-                    exp_first_name,
-                    exp_last_name,
-                )
+                (exp_username, exp_first_name, exp_last_name,)
             );
         }
     }

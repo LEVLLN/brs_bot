@@ -473,6 +473,7 @@ pub fn parse_command<'a>(
                     message: "Необходимо указать значения",
                 }),
                 rest if settings.split_values => {
+                    // TODO: Надо разделить по значениям на Vec<Vec<Token>>
                     println!("NEED SPLIT VALUES!!!");
                     Ok(CommandContainer {
                         command,

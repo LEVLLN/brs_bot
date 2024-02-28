@@ -1,8 +1,11 @@
 use log::{info, warn};
-use sqlx::{Pool, Postgres};
+use rand::Rng;
+use sqlx::{PgPool, Pool, Postgres};
 use tokio::try_join;
 
-use crate::common::db::{Chat as ChatDB, ChatId, Member as MemberDB, MemberId};
+use crate::common::db::{
+    Chat as ChatDB, ChatId, ChatToMemberId, Member as MemberDB, MemberId,
+};
 use crate::common::error::ProcessError;
 use crate::common::request::{Chat as ChatRequest, User as UserRequest};
 
@@ -23,6 +26,20 @@ fn chat_title(chat: &ChatRequest) -> String {
             format!("{first_name} {last_name}").to_string()
         }
         _ => chat.id.to_string(),
+    }
+}
+
+pub fn pretty_username(member_db: &MemberDB) -> String {
+    match member_db {
+        MemberDB {
+            first_name,
+            last_name,
+            ..
+        } if !first_name.is_empty() || !last_name.is_empty() => {
+            format!("{first_name} {last_name}")
+        }
+        MemberDB { username, .. } if !username.is_empty() => username.to_string(),
+        _ => member_db.member_id.to_string(),
     }
 }
 
@@ -116,13 +133,13 @@ async fn process_user<'a>(
     }
 }
 
-async fn bind_user_to_chat<'a>(
+pub async fn bind_user_to_chat<'a>(
     pool: &Pool<Postgres>,
     member_id: MemberId,
     chat_id: ChatId,
-) -> Result<(MemberId, ChatId), ProcessError<'a>> {
-    if MemberDB::has_binding_chat(pool, &member_id, &chat_id).await {
-        Ok((member_id, chat_id))
+) -> Result<(MemberId, ChatId, ChatToMemberId), ProcessError<'a>> {
+    if let Some(chat_to_member_id) = MemberDB::chat_to_member_id(pool, &member_id, &chat_id).await {
+        Ok((member_id, chat_id, chat_to_member_id))
     } else {
         match MemberDB::bind_to_chat(pool, &member_id, &chat_id).await {
             Ok(chat_to_member_id) => {
@@ -130,7 +147,7 @@ async fn bind_user_to_chat<'a>(
                     "Member {:?} binds to Chat {:?} success. Record: {:?}",
                     &member_id, &chat_id, chat_to_member_id
                 );
-                Ok((member_id, chat_id))
+                Ok((member_id, chat_id, chat_to_member_id))
             }
             Err(err) => {
                 warn!(
@@ -149,9 +166,29 @@ pub async fn process_user_and_chat<'a>(
     pool: &Pool<Postgres>,
     user: &UserRequest,
     chat: &ChatRequest,
-) -> Result<(MemberId, ChatId), ProcessError<'a>> {
+) -> Result<(MemberId, ChatId, ChatToMemberId), ProcessError<'a>> {
     match try_join!(process_user(pool, user), process_chat(pool, chat)) {
         Ok((member_id, chat_id)) => bind_user_to_chat(pool, member_id, chat_id).await,
         Err(e) => Err(e),
+    }
+}
+
+pub async fn random_user_from_chat<'a>(
+    pool: &PgPool,
+    chat_id: &ChatId,
+) -> Result<MemberDB, ProcessError<'a>> {
+    let member_ids: Vec<MemberId> = MemberDB::chat_members(&pool.clone(), chat_id).await;
+    if member_ids.is_empty() {
+        Err(ProcessError::Feedback {
+            message: "Не найдено пользователей в чате",
+        })
+    } else {
+        let member_id = &member_ids[rand::thread_rng().gen_range(0..member_ids.len())];
+        match MemberDB::one_by_id(pool, member_id).await {
+            None => Err(ProcessError::Feedback {
+                message: "Не найдено пользователей в чате",
+            }),
+            Some(member) => Ok(member),
+        }
     }
 }

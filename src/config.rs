@@ -17,9 +17,9 @@ pub static DATABASE_URL: Lazy<String> = Lazy::new(|| {
 
 pub static TELEGRAM_URL: OnceCell<Url> = OnceCell::new();
 
-pub fn init_telegram_url(override_url: Option<String>) {
+pub fn init_telegram_url(_override_url: Option<String>) {
     #[cfg(test)]
-    { TELEGRAM_URL.get_or_init(|| Url::parse(&override_url.unwrap()).unwrap()); }
+    { TELEGRAM_URL.get_or_init(|| Url::parse(&_override_url.unwrap()).unwrap()); }
     #[cfg(not(test))]
     {
         let mut auth_token = String::with_capacity(80);
@@ -33,7 +33,6 @@ pub fn init_telegram_url(override_url: Option<String>) {
                 .unwrap()
                 .join(&auth_token) {
                 Ok(telegram_url) => {
-                    println!("{}", telegram_url.to_string().len());
                     telegram_url
                 }
                 Err(e) => panic!("TELEGRAM_URL with BOT_TOKEN build failed: {}", e),

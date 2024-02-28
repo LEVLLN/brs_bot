@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{query, query_as, Error, FromRow, Pool, Postgres, Row};
+use sqlx::{query, query_as, Error, FromRow, Pool, Postgres, Row, PgPool};
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
 #[sqlx(transparent)]
@@ -20,6 +20,14 @@ pub struct Member {
 }
 
 impl Member {
+    pub async fn one_by_id(pool: &PgPool, id: &MemberId) -> Option<Member> {
+        query_as::<_, Member>(
+            "SELECT id, member_id, is_bot, username, last_name, first_name FROM members WHERE id = $1;",
+        ).bind(id)
+            .fetch_one(pool)
+            .await
+            .ok()
+    }
     pub async fn one_by_member_id(pool: &Pool<Postgres>, member_id: i64) -> Option<Member> {
         query_as::<_, Member>(
             &format!("SELECT id, member_id, is_bot, username, last_name, first_name FROM members WHERE member_id = {member_id};"),
@@ -69,19 +77,22 @@ impl Member {
         .map(|x| x.get::<MemberId, _>("id"))
     }
 
-    pub async fn has_binding_chat(pool: &Pool<Postgres>, member_id: &MemberId, chat_id: &ChatId) -> bool {
+    pub async fn chat_to_member_id(
+        pool: &Pool<Postgres>,
+        member_id: &MemberId,
+        chat_id: &ChatId,
+    ) -> Option<ChatToMemberId> {
         query(
-            "SELECT EXISTS (SELECT id FROM chats_to_members \
+            "SELECT id FROM chats_to_members \
         WHERE member_id = $1 \
-        AND chat_id = $2);",
+        AND chat_id = $2;",
         )
         .bind(member_id)
         .bind(chat_id)
         .fetch_one(pool)
         .await
         .ok()
-        .map(|x| x.get::<bool, _>("exists"))
-        .unwrap_or_default()
+        .map(|x| x.get::<ChatToMemberId, _>("id"))
     }
     pub async fn bind_to_chat(
         pool: &Pool<Postgres>,
@@ -99,6 +110,20 @@ impl Member {
         .await
         .map(|x| x.get::<ChatToMemberId, _>("id"))
     }
+
+    pub async fn chat_members(pool: &Pool<Postgres>, chat_id: &ChatId) -> Vec<MemberId> {
+        query(
+            "SELECT member_id FROM chats_to_members \
+        WHERE chat_id = $1 AND updated_at >= now() - INTERVAL '30 DAYS'",
+        )
+        .bind(chat_id)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default()
+        .iter()
+        .map(|x| x.get::<MemberId, _>("member_id"))
+        .collect::<Vec<MemberId>>()
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
@@ -107,9 +132,9 @@ pub struct ChatId(i32);
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct Chat {
-    id: ChatId,
-    chat_id: i64,
-    name: String,
+    pub id: ChatId,
+    pub chat_id: i64,
+    pub name: String,
 }
 
 impl Chat {
