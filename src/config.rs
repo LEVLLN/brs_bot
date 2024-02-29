@@ -17,9 +17,10 @@ pub static DATABASE_URL: Lazy<String> = Lazy::new(|| {
 
 pub static TELEGRAM_URL: OnceCell<Url> = OnceCell::new();
 
+
 pub fn init_telegram_url(_override_url: Option<String>) {
     #[cfg(test)]
-    { TELEGRAM_URL.get_or_init(|| Url::parse(&_override_url.unwrap()).unwrap()); }
+    {TELEGRAM_URL.get_or_init(|| Url::parse(&_override_url.unwrap()).unwrap());}
     #[cfg(not(test))]
     {
         let mut auth_token = String::with_capacity(80);

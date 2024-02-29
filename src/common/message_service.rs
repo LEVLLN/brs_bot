@@ -1,7 +1,7 @@
-use log::info;
 use std::fmt::Debug;
 use std::iter::Iterator;
 
+use log::info;
 use sqlx::PgPool;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -11,7 +11,7 @@ use crate::common::db::{ChatId, ChatToMemberId, MemberId};
 use crate::common::error::ProcessError;
 use crate::common::lexer::{tokenize, Token};
 use crate::common::request::RequestPayload;
-use crate::common::response::ResponseMessage;
+use crate::common::response::{BaseBody, LinkPreviewOption, ResponseMessage};
 use crate::common::telegram_client::send_message;
 use crate::common::user_service::process_user_and_chat;
 
@@ -92,30 +92,51 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
         .ext
         .raw_text()
         .map(tokenize);
-    for process in Processor::iter() {
-        match process
-            .handle(tokens, request_payload, pool, &member_db_id, &chat_db_id, &chat_to_member_db_id)
+    for processor in Processor::iter() {
+        match processor
+            .handle(
+                tokens,
+                request_payload,
+                pool,
+                &member_db_id,
+                &chat_db_id,
+                &chat_to_member_db_id,
+            )
             .await
         {
             Ok(response_message) => {
-                info!(
-                    "{:?} success completed. Result: {:?}",
-                    process, response_message
-                );
-                send_message(&response_message).await.expect("TODO: panic message");
+                info!("{:?} success completed for {:?}", processor, chat_db_id);
+                send_message(&response_message, &chat_db_id).await;
                 break;
             }
             Err(error) => match error {
                 ProcessError::Stop => {
-                    info!("{:?} was stopped", process);
+                    info!("{:?} was stopped for {:?}", processor, chat_db_id);
                     break;
                 }
                 ProcessError::Feedback { message } => {
-                    info!("User sends feedback {:?}", message);
+                    info!(
+                        "User error, sends feedback: {:?} for {:?}",
+                        message, chat_db_id
+                    );
+                    send_message(
+                        &ResponseMessage::Text {
+                            base_body: BaseBody {
+                                chat_id: request_payload.any_message().direct().base.chat.id,
+                                reply_to_message_id: Some(
+                                    request_payload.any_message().direct().base.message_id,
+                                ),
+                            },
+                            text: message.to_string(),
+                            link_preview_options: LinkPreviewOption { is_disabled: false },
+                        },
+                        &chat_db_id,
+                    )
+                    .await;
                     break;
                 }
                 ProcessError::Next => {
-                    info!("{:?} was skipped, go next", process);
+                    info!("{:?} was skipped for {:?}, go next", processor, chat_db_id);
                 }
             },
         }

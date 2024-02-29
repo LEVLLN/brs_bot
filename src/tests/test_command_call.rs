@@ -9,16 +9,19 @@ mod tests {
     };
     use wiremock::{Mock, ResponseTemplate};
 
-    use crate::tests::fixtures::request_body_fixtures::{default_chat, default_origin_direct_text_message, default_user, EXISTED_CHAT_ID, existed_chat_user};
+    use crate::tests::fixtures::request_body_fixtures::{
+        default_chat, default_origin_direct_text_message, default_user, existed_chat_user,
+        EXISTED_CHAT_ID,
+    };
     use crate::tests::helpers::functions::{api_telegram_request, mock_telegram_server};
-    
+
     #[sqlx::test(migrations = "./migrations")]
     async fn test_skip_all_handlers(pool: PgPool) {
         Mock::given(method("POST"))
             .and(path("/sendMessage"))
             .respond_with(ResponseTemplate::new(200))
             .expect(..=0)
-            .mount(&mock_telegram_server().await)
+            .mount(mock_telegram_server().await)
             .await;
         assert_eq!(
             api_telegram_request(
@@ -56,7 +59,7 @@ mod tests {
                 .and(body_partial_json(HashMap::from([("text", output)])))
                 .respond_with(ResponseTemplate::new(200))
                 .expect(1..=1)
-                .mount(&server)
+                .mount(server)
                 .await;
             assert_eq!(
                 api_telegram_request(
@@ -89,7 +92,7 @@ mod tests {
                 .and(body_string_contains(output))
                 .respond_with(ResponseTemplate::new(200))
                 .expect(1..=1)
-                .mount(&server)
+                .mount(server)
                 .await;
             assert_eq!(
                 api_telegram_request(
