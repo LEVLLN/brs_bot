@@ -3,9 +3,7 @@ use rand::Rng;
 use sqlx::{PgPool, Pool, Postgres};
 use tokio::try_join;
 
-use crate::common::db::{
-    Chat as ChatDB, ChatId, ChatToMemberId, Member as MemberDB, MemberId,
-};
+use crate::common::db::{Chat as ChatDB, ChatId, ChatToMemberId, Member as MemberDB, MemberId};
 use crate::common::error::ProcessError;
 use crate::common::request::{Chat as ChatRequest, User as UserRequest};
 
@@ -138,7 +136,9 @@ pub async fn bind_user_to_chat<'a>(
     member_id: MemberId,
     chat_id: ChatId,
 ) -> Result<(MemberId, ChatId, ChatToMemberId), ProcessError<'a>> {
-    if let Some(chat_to_member_id) = MemberDB::chat_to_member_id(pool, &member_id, &chat_id).await {
+    if let Some(chat_to_member_id) =
+        MemberDB::update_chat_to_member_bind(pool, &member_id, &chat_id).await
+    {
         Ok((member_id, chat_id, chat_to_member_id))
     } else {
         match MemberDB::bind_to_chat(pool, &member_id, &chat_id).await {

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{query, query_as, Error, FromRow, Pool, Postgres, Row, PgPool};
+use sqlx::{query, query_as, Error, FromRow, PgPool, Pool, Postgres, Row};
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
 #[sqlx(transparent)]
@@ -77,15 +77,16 @@ impl Member {
         .map(|x| x.get::<MemberId, _>("id"))
     }
 
-    pub async fn chat_to_member_id(
+    pub async fn update_chat_to_member_bind(
         pool: &Pool<Postgres>,
         member_id: &MemberId,
         chat_id: &ChatId,
     ) -> Option<ChatToMemberId> {
         query(
-            "SELECT id FROM chats_to_members \
+            "UPDATE chats_to_members SET updated_at=now() \
         WHERE member_id = $1 \
-        AND chat_id = $2;",
+        AND chat_id = $2 \
+        RETURNING id;",
         )
         .bind(member_id)
         .bind(chat_id)
@@ -94,6 +95,7 @@ impl Member {
         .ok()
         .map(|x| x.get::<ChatToMemberId, _>("id"))
     }
+
     pub async fn bind_to_chat(
         pool: &Pool<Postgres>,
         member_id: &MemberId,
