@@ -29,4 +29,4 @@ mime = { version = "0.3.17", features = [] }
 http = "1.0.0"
 http-body-util = "0.1.0"
 tower = "0.4.13"
-wiremock = "0.6.0"
+assert-json-diff = "2.0.2"

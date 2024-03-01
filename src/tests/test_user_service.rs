@@ -3,7 +3,7 @@ mod tests {
     use axum::http::StatusCode;
     use sqlx::{query, PgPool, Row};
 
-    use crate::tests::fixtures::request_body_fixtures::{
+    use crate::tests::helpers::fixtures::{
         default_chat, default_origin_direct_text_message, default_user, EXISTED_CHAT_ID,
         EXISTED_USER_ID,
     };

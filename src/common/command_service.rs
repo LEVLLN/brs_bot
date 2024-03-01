@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 use sqlx::PgPool;
+use unicase::UniCase;
 
 use crate::common::command_parser::{
     find_command, parse_command, Command, CommandContainer, CommandSetting, COMMAND_SETTING_MAP,
@@ -116,7 +117,7 @@ static COMMAND_HELP_MAP: Lazy<HashMap<&'static Command, String>> = Lazy::new(|| 
 });
 
 static COMMANDS_HELP_LIST: Lazy<String> = Lazy::new(|| {
-    let commands_list = COMMAND_SETTING_MAP.iter().enumerate().fold(
+    COMMAND_SETTING_MAP.iter().enumerate().fold(
         String::new(),
         |mut output, (index, (_, command_setting))| {
             output += &format!(
@@ -127,9 +128,7 @@ static COMMANDS_HELP_LIST: Lazy<String> = Lazy::new(|| {
             );
             output
         },
-    );
-    commands_list
-        + "\nЧтобы узнать подробнее о нужной команде необходимо написать: \"хлеб help [команда]\""
+    ) + "\nЧтобы узнать подробнее о нужной команде необходимо написать: \"хлеб help [команда]\""
 });
 
 fn help<'a>(
@@ -150,12 +149,31 @@ fn help<'a>(
             }
             tokens => match find_command(tokens) {
                 None => HELP_MAIN.to_owned(),
-                Some((command, _)) => COMMAND_HELP_MAP.get(command).unwrap().to_owned(),
+                Some((command, _, _)) => COMMAND_HELP_MAP.get(command).unwrap().to_owned(),
             },
         },
         link_preview_options: LinkPreviewOption { is_disabled: true },
     })
 }
+
+static WHO_FORMS: Lazy<HashMap<UniCase<&'static str>, &str>> = Lazy::new(|| {
+    HashMap::from([
+        (UniCase::new(""), ""),
+        (UniCase::new("кто"), ""),
+        (UniCase::new("кому"), "ему(ей):"),
+        (UniCase::new("кем"), "им(ей):"),
+        (UniCase::new("с кем"), "с ним(ней):"),
+        (UniCase::new("кого"), "его(eё):"),
+        (UniCase::new("у кого"), "у него(неё):"),
+        (UniCase::new("про кого"), "про него(неё):"),
+        (UniCase::new("о ком"), "о нём(ней):"),
+        (UniCase::new("чьё"), "его(её):"),
+        (UniCase::new("чье"), "его(её):"),
+        (UniCase::new("чья"), "его(её):"),
+        (UniCase::new("чей"), "его(её):"),
+        (UniCase::new("who"), "его(её):"),
+    ])
+});
 
 async fn who<'a>(
     pool: &PgPool,
@@ -164,11 +182,31 @@ async fn who<'a>(
     direct_message: &MessageBody,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
     Ok(ResponseMessage::Text {
-        text: pretty_username(&random_user_from_chat(pool, chat_db_id).await?)
-            + &match tokens_to_string(command_container.rest, true) {
-                rest if rest.is_empty() => String::from(""),
-                rest => String::from(" ") + &rest,
-            },
+        text: match (
+            tokens_to_string(command_container.rest, true),
+            WHO_FORMS
+                .get(&UniCase::new(&match command_container.command_aliases {
+                    [Token::Word(pretext), Token::Word(question)] => {
+                        format!("{pretext} {question}")
+                    }
+                    [Token::Word(question)] => question.to_string(),
+                    _ => "".to_string(),
+                }))
+                .unwrap()
+                .to_string(),
+            pretty_username(&random_user_from_chat(pool, chat_db_id).await?),
+        ) {
+            (rest, pretext, username) if !rest.is_empty() && pretext.is_empty() => {
+                username + " " + &rest
+            }
+            (rest, pretext, username) if !rest.is_empty() && !pretext.is_empty() => {
+                rest + " " + &pretext + " " + &username
+            }
+            (rest, pretext, username) if rest.is_empty() && !pretext.is_empty() => {
+                pretext + " " + &username
+            }
+            (_, _, username) => username,
+        },
         link_preview_options: LinkPreviewOption { is_disabled: false },
         base_body: BaseBody {
             chat_id: direct_message.base.chat.id,
@@ -178,13 +216,18 @@ async fn who<'a>(
 }
 
 pub async fn process_command<'a>(
-    tokens: &'a [Token<'a>],
+    tokens: &'a Option<Vec<Token<'a>>>,
     message: &'a Message,
     pool: &PgPool,
     _member_db_id: &MemberId,
     chat_db_id: &ChatId,
     _chat_to_member_db_id: &ChatToMemberId,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
+    let tokens = match tokens {
+        None => return Err(ProcessError::Next),
+        Some(x) if x.is_empty() => return Err(ProcessError::Next),
+        Some(x) => x,
+    };
     match parse_command(tokens, message.reply().is_some()) {
         Ok(command_container) => match &command_container.command {
             Command::Help => help(&command_container, message.direct()),

@@ -47,7 +47,6 @@ pub struct CommandSetting<'a> {
     pub required_reply: bool,
 }
 
-
 pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'static>>> =
     Lazy::new(|| {
         let command_settings = HashMap::from([
@@ -67,7 +66,21 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
             (
                 &Who,
                 CommandSetting {
-                    aliases: vec!["кто", "who"],
+                    aliases: vec![
+                        "кто",
+                        "кому",
+                        "кем",
+                        "с кем",
+                        "кого",
+                        "у кого",
+                        "про кого",
+                        "о ком",
+                        "чьё",
+                        "чье",
+                        "чья",
+                        "чей",
+                        "who",
+                    ],
                     description: "Случайно выбирает пользователя группы \
                     и приписывает заданное значение к имени пользователя",
                     split_values: false,
@@ -329,12 +342,12 @@ pub enum ControlItem {
 
 impl ControlItem {
     fn try_from_token<'a>(token: &'a Token<'a>) -> Option<&'a Self> {
-        match token {
-            Word("триггер") | Word("триггеры") => Some(&Trigger),
-            Word("подстроку") | Word("подстроки") => Some(&Substring),
-            Word("бред") => Some(&MorphWord),
-            Word("ключ") | Word("ключи") => Some(&KeyWord),
-            _ => None,
+        match token{
+            x if [Word("триггер"), Word("триггеры")].contains(x) => Some(&Trigger),
+            x if [Word("подстроку"), Word("подстроки")].contains(x) => Some(&Substring),
+            x if [Word("бред")].contains(x) => Some(&MorphWord),
+            x if [Word("ключ"), Word("ключи")].contains(x) => Some(&KeyWord),
+            _ => None
         }
     }
 
@@ -379,12 +392,15 @@ pub fn is_bot_call(token: &Token) -> bool {
 #[derive(Debug, PartialEq, Clone)]
 pub struct CommandContainer<'a> {
     pub command: &'a Command,
+    pub command_aliases: &'a [Token<'a>],
     pub control_item: Option<&'a ControlItem>,
     pub values: Box<[&'a [Token<'a>]]>,
     pub rest: &'a [Token<'a>],
 }
 
-pub fn find_command<'a>(tokens: &'a [Token<'a>]) -> Option<(&'a Command, &'a [Token<'a>])> {
+pub fn find_command<'a>(
+    tokens: &'a [Token<'a>],
+) -> Option<(&'a Command, &'a [Token<'a>], &'a [Token<'a>])> {
     command_keywords()
         .iter()
         .find(|(_, keywords)| {
@@ -392,10 +408,18 @@ pub fn find_command<'a>(tokens: &'a [Token<'a>]) -> Option<(&'a Command, &'a [To
                 keywords.len() < tokens.len() + 1 && tokens.len() > i && &tokens[i] == t
             })
         })
-        .map(|(command, keywords)| (*command, &tokens[keywords.len()..=tokens.len() - 1]))
+        .map(|(command, command_aliases)| {
+            (
+                *command,
+                command_aliases.as_slice(),
+                &tokens[command_aliases.len()..=tokens.len() - 1],
+            )
+        })
 }
 
-fn find_bot_call_command<'a>(tokens: &'a [Token<'a>]) -> Option<(&'a Command, &'a [Token<'a>])> {
+fn find_bot_call_command<'a>(
+    tokens: &'a [Token<'a>],
+) -> Option<(&'a Command, &'a [Token<'a>], &'a [Token<'a>])> {
     match tokens {
         [bot_call, rest @ ..] if is_bot_call(bot_call) => find_command(rest),
         _ => None,
@@ -452,7 +476,7 @@ pub fn parse_command<'a>(
     has_reply: bool,
 ) -> Result<CommandContainer<'a>, ProcessError<'a>> {
     if let Some(validated_command) =
-        find_bot_call_command(tokens).map(|(command, rest_after_command)| {
+        find_bot_call_command(tokens).map(|(command, command_aliases, rest_after_command)| {
             let settings = COMMAND_SETTING_MAP.get(command).unwrap();
             if settings.required_reply && !has_reply {
                 return Err(ProcessError::Feedback {
@@ -477,6 +501,7 @@ pub fn parse_command<'a>(
                     println!("NEED SPLIT VALUES!!!");
                     Ok(CommandContainer {
                         command,
+                        command_aliases,
                         control_item,
                         values: Box::new([rest]),
                         rest,
@@ -484,6 +509,7 @@ pub fn parse_command<'a>(
                 }
                 _ => Ok(CommandContainer {
                     command,
+                    command_aliases,
                     control_item,
                     values: Box::new([rest]),
                     rest,

@@ -19,6 +19,31 @@ pub struct Member {
     pub last_name: String,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
+#[sqlx(transparent)]
+pub struct ChatId(i32);
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
+pub struct Chat {
+    pub id: ChatId,
+    pub chat_id: i64,
+    pub name: String,
+}
+
+impl ChatId {
+    #[allow(dead_code)]
+    pub fn new(v: i32) -> Self {
+        ChatId(v)
+    }
+}
+
+impl MemberId {
+    #[allow(dead_code)]
+    pub fn new(v: i32) -> Self {
+        MemberId(v)
+    }
+}
+
 impl Member {
     pub async fn one_by_id(pool: &PgPool, id: &MemberId) -> Option<Member> {
         query_as::<_, Member>(
@@ -126,17 +151,6 @@ impl Member {
         .map(|x| x.get::<MemberId, _>("member_id"))
         .collect::<Vec<MemberId>>()
     }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
-#[sqlx(transparent)]
-pub struct ChatId(i32);
-
-#[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
-pub struct Chat {
-    pub id: ChatId,
-    pub chat_id: i64,
-    pub name: String,
 }
 
 impl Chat {

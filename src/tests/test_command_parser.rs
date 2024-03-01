@@ -73,6 +73,17 @@ mod tests {
                 "хлеб добавь бред утка",
                 Ok(CommandContainer {
                     command: &Add,
+                    command_aliases: &[Token::Word("добавь")],
+                    control_item: Some(&ControlItem::MorphWord),
+                    values: Box::new([&[Token::Word("утка")]]),
+                    rest: &[Token::Word("утка")],
+                }),
+            ),
+            (
+                "хлеб добавь БРЕД утка",
+                Ok(CommandContainer {
+                    command: &Add,
+                    command_aliases: &[Token::Word("добавь")],
                     control_item: Some(&ControlItem::MorphWord),
                     values: Box::new([&[Token::Word("утка")]]),
                     rest: &[Token::Word("утка")],
@@ -90,6 +101,7 @@ mod tests {
                 "хлеб хелп",
                 Ok(CommandContainer {
                     command: &Help,
+                    command_aliases: &[Token::Word("хелп")],
                     control_item: None,
                     values: Box::new([&[]]),
                     rest: &[],
@@ -99,6 +111,7 @@ mod tests {
                 "хлеб хелп бред",
                 Ok(CommandContainer {
                     command: &Help,
+                    command_aliases: &[Token::Word("хелп")],
                     control_item: None,
                     values: Box::new([&[Token::Word("бред")]]),
                     rest: &[Token::Word("бред")],
@@ -108,6 +121,7 @@ mod tests {
                 "хлеб хелп бред бред",
                 Ok(CommandContainer {
                     command: &Help,
+                    command_aliases: &[Token::Word("хелп")],
                     control_item: None,
                     values: Box::new([&[Token::Word("бред"), Token::Word("бред")]]),
                     rest: &[Token::Word("бред"), Token::Word("бред")],
@@ -125,6 +139,7 @@ mod tests {
                 "хлеб покажи",
                 Ok(CommandContainer {
                     command: &Show,
+                    command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
                     values: Box::new([&[]]),
                     rest: &[],
@@ -140,6 +155,7 @@ mod tests {
                 "хлеб покажи подстроку",
                 Ok(CommandContainer {
                     command: &Show,
+                    command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
                     values: Box::new([&[]]),
                     rest: &[],
@@ -155,6 +171,7 @@ mod tests {
                 "хлеб покажи подстроки",
                 Ok(CommandContainer {
                     command: &Show,
+                    command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
                     values: Box::new([&[]]),
                     rest: &[],
@@ -170,6 +187,7 @@ mod tests {
                 "хлеб покажи подстроку бред",
                 Ok(CommandContainer {
                     command: &Show,
+                    command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
                     values: Box::new([&[Token::Word("бред")]]),
                     rest: &[Token::Word("бред")],
@@ -185,6 +203,7 @@ mod tests {
                 "хлеб покажи обед",
                 Ok(CommandContainer {
                     command: &Show,
+                    command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
                     values: Box::new([&[Token::Word("обед")]]),
                     rest: &[Token::Word("обед")],
@@ -195,6 +214,7 @@ mod tests {
                 "хлеб покажи бред",
                 Ok(CommandContainer {
                     command: &Show,
+                    command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::MorphWord),
                     values: Box::new([&[]]),
                     rest: &[],
@@ -205,6 +225,7 @@ mod tests {
                 "хлеб покажи ключи обед",
                 Ok(CommandContainer {
                     command: &Show,
+                    command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::KeyWord),
                     values: Box::new([&[Token::Word("обед")]]),
                     rest: &[Token::Word("обед")],
@@ -223,6 +244,7 @@ mod tests {
                 "хлеб кто булочка?",
                 Ok(CommandContainer {
                     command: &Who,
+                    command_aliases: &[Token::Word("кто")],
                     control_item: None,
                     values: Box::new([&[Token::Word("булочка"), Token::Punctuation("?")]]),
                     rest: &[Token::Word("булочка"), Token::Punctuation("?")],
@@ -232,6 +254,7 @@ mod tests {
                 "хлеб КТО булочка?",
                 Ok(CommandContainer {
                     command: &Who,
+                    command_aliases: &[Token::Word("КТО")],
                     control_item: None,
                     values: Box::new([&[Token::Word("булочка"), Token::Punctuation("?")]]),
                     rest: &[Token::Word("булочка"), Token::Punctuation("?")],
@@ -241,6 +264,7 @@ mod tests {
                 "ХЛЕБ кто булочка?",
                 Ok(CommandContainer {
                     command: &Who,
+                    command_aliases: &[Token::Word("кто")],
                     control_item: None,
                     values: Box::new([&[Token::Word("булочка"), Token::Punctuation("?")]]),
                     rest: &[Token::Word("булочка"), Token::Punctuation("?")],
@@ -250,6 +274,7 @@ mod tests {
                 "хлеб who булочка?",
                 Ok(CommandContainer {
                     command: &Who,
+                    command_aliases: &[Token::Word("who")],
                     control_item: None,
                     values: Box::new([&[Token::Word("булочка"), Token::Punctuation("?")]]),
                     rest: &[Token::Word("булочка"), Token::Punctuation("?")],
@@ -259,6 +284,7 @@ mod tests {
                 "хлеб кто?",
                 Ok(CommandContainer {
                     command: &Who,
+                    command_aliases: &[Token::Word("кто")],
                     control_item: None,
                     values: Box::new([&[Token::Punctuation("?")]]),
                     rest: &[Token::Punctuation("?")],
@@ -268,6 +294,7 @@ mod tests {
                 "хлеб кто",
                 Ok(CommandContainer {
                     command: &Who,
+                    command_aliases: &[Token::Word("кто")],
                     control_item: None,
                     values: Box::new([&[]]),
                     rest: &[],
@@ -285,6 +312,7 @@ mod tests {
                 "хлеб процент срабатывания",
                 Ok(CommandContainer {
                     command: &AnswerChance,
+                    command_aliases: &[Token::Word("процент"), Token::Word("срабатывания")],
                     control_item: None,
                     values: Box::new([&[]]),
                     rest: &[],
@@ -294,6 +322,7 @@ mod tests {
                 "хлеб процент",
                 Ok(CommandContainer {
                     command: &AnswerChance,
+                    command_aliases: &[Token::Word("процент")],
                     control_item: None,
                     values: Box::new([&[]]),
                     rest: &[],
@@ -303,6 +332,7 @@ mod tests {
                 "хлеб процент 20",
                 Ok(CommandContainer {
                     command: &AnswerChance,
+                    command_aliases: &[Token::Word("процент")],
                     control_item: None,
                     values: Box::new([&[Token::Word("20")]]),
                     rest: &[Token::Word("20")],
@@ -326,6 +356,7 @@ mod tests {
                 "хлеб проверь нога",
                 Ok(CommandContainer {
                     command: &Check,
+                    command_aliases: &[Token::Word("проверь")],
                     control_item: Some(&ControlItem::Substring),
                     values: Box::new([&[Token::Word("нога")]]),
                     rest: &[Token::Word("нога")],
@@ -335,6 +366,7 @@ mod tests {
                 "хлеб проверь триггер нога",
                 Ok(CommandContainer {
                     command: &Check,
+                    command_aliases: &[Token::Word("проверь")],
                     control_item: Some(&ControlItem::Trigger),
                     values: Box::new([&[Token::Word("нога")]]),
                     rest: &[Token::Word("нога")],

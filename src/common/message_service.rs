@@ -34,45 +34,39 @@ async fn process_auto_morph<'a>() -> Result<ResponseMessage, ProcessError<'a>> {
 }
 
 #[derive(Debug, Eq, PartialEq, EnumIter, Clone)]
-enum Processor {
+pub enum Processor {
     Command,
     AutoTrigger,
     AutoSubstring,
     AutoMorph,
 }
 
-impl Processor {
-    async fn handle<'a>(
-        &self,
-        tokens: &'a Option<Vec<Token<'a>>>,
-        request_payload: &'a RequestPayload,
-        pool: &PgPool,
-        member_db_id: &MemberId,
-        chat_db_id: &ChatId,
-        chat_to_member_db_id: &ChatToMemberId,
-    ) -> Result<ResponseMessage, ProcessError<'a>> {
-        match self {
-            Processor::Command => match tokens {
-                Some(_tokens) if !_tokens.is_empty() => {
-                    process_command(
-                        _tokens,
-                        request_payload.any_message(),
-                        pool,
-                        member_db_id,
-                        chat_db_id,
-                        chat_to_member_db_id,
-                    )
-                    .await
-                }
-                _ => Err(ProcessError::Next),
-            },
-            Processor::AutoTrigger => process_auto_entity(AutoEntityRegime::Trigger).await,
-            Processor::AutoSubstring => process_auto_entity(AutoEntityRegime::Substring).await,
-            Processor::AutoMorph => process_auto_morph().await,
+pub async fn handle_processor<'a>(
+    processor: &Processor,
+    tokens: &'a Option<Vec<Token<'a>>>,
+    request_payload: &'a RequestPayload,
+    pool: &PgPool,
+    member_db_id: &MemberId,
+    chat_db_id: &ChatId,
+    chat_to_member_db_id: &ChatToMemberId,
+) -> Result<ResponseMessage, ProcessError<'a>> {
+    match processor {
+        Processor::Command => {
+            process_command(
+                tokens,
+                request_payload.any_message(),
+                pool,
+                member_db_id,
+                chat_db_id,
+                chat_to_member_db_id,
+            )
+            .await
         }
+        Processor::AutoTrigger => process_auto_entity(AutoEntityRegime::Trigger).await,
+        Processor::AutoSubstring => process_auto_entity(AutoEntityRegime::Substring).await,
+        Processor::AutoMorph => process_auto_morph().await,
     }
 }
-
 pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload) {
     let (member_db_id, chat_db_id, chat_to_member_db_id) = match process_user_and_chat(
         pool,
@@ -93,17 +87,17 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
         .raw_text()
         .map(tokenize);
     for processor in Processor::iter() {
-        match processor
-            .handle(
-                tokens,
-                request_payload,
-                pool,
-                &member_db_id,
-                &chat_db_id,
-                &chat_to_member_db_id,
-            )
-            .await
-        {
+        let response_message = handle_processor(
+            &processor,
+            tokens,
+            request_payload,
+            pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+        .await;
+        match response_message {
             Ok(response_message) => {
                 info!("{:?} success completed for {:?}", processor, chat_db_id);
                 send_message(&response_message, &chat_db_id).await;
@@ -137,6 +131,7 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
                 }
                 ProcessError::Next => {
                     info!("{:?} was skipped for {:?}, go next", processor, chat_db_id);
+                    continue;
                 }
             },
         }
