@@ -136,12 +136,9 @@ pub async fn bind_user_to_chat<'a>(
     member_id: MemberId,
     chat_id: ChatId,
 ) -> Result<(MemberId, ChatId, ChatToMemberId), ProcessError<'a>> {
-    if let Some(chat_to_member_id) =
-        MemberDB::update_chat_to_member_bind(pool, &member_id, &chat_id).await
-    {
-        Ok((member_id, chat_id, chat_to_member_id))
-    } else {
-        match MemberDB::bind_to_chat(pool, &member_id, &chat_id).await {
+    match MemberDB::update_chat_to_member_bind(pool, &member_id, &chat_id).await {
+        Some(chat_to_member_id) => Ok((member_id, chat_id, chat_to_member_id)),
+        None => match MemberDB::bind_to_chat(pool, &member_id, &chat_id).await {
             Ok(chat_to_member_id) => {
                 info!(
                     "Member {:?} binds to Chat {:?} success. Record: {:?}",
