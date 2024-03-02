@@ -485,7 +485,7 @@ fn positive_control_item_settings<'a>(
         (Some(available_control_items), Some(default_control_item))
             if !available_control_items.contains(control_item) =>
         {
-            Ok((Some(default_control_item), &rest[1..rest.len()]))
+            Ok((Some(default_control_item), rest))
         }
         (Some(available_control_items), None)
             if !available_control_items.contains(control_item) =>

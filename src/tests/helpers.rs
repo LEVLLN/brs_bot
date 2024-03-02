@@ -91,9 +91,10 @@ pub mod fixtures {
         .await
         .unwrap()
     }
+    
     pub fn default_origin_direct_text_message(
-        user: User,
-        chat: Chat,
+        user: &User,
+        chat: &Chat,
         text: &str,
     ) -> RequestPayload {
         RequestPayload::Origin {
@@ -102,8 +103,8 @@ pub mod fixtures {
                 direct: MessageBody {
                     base: MessageBase {
                         message_id: 5555,
-                        from: user,
-                        chat,
+                        from: user.clone(),
+                        chat: chat.clone(),
                         forward_from: None,
                         forward_from_chat: None,
                     },

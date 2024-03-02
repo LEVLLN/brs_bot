@@ -68,7 +68,7 @@ mod tests {
             chat.username = username;
             chat.first_name = first_name;
             chat.last_name = last_name;
-            let message = default_origin_direct_text_message(default_user(), chat, "some_text");
+            let message = default_origin_direct_text_message(&default_user(), &chat, "some_text");
             let response = api_telegram_request(pool.clone(), &message).await;
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
@@ -146,7 +146,7 @@ mod tests {
             user.username = username;
             user.first_name = first_name;
             user.last_name = last_name;
-            let message = default_origin_direct_text_message(user, default_chat(), "some_text");
+            let message = default_origin_direct_text_message(&user, &default_chat(), "some_text");
             let response = api_telegram_request(pool.clone(), &message).await;
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
@@ -169,7 +169,7 @@ mod tests {
     #[sqlx::test(migrations = "./migrations")]
     async fn test_create_user(pool: PgPool) {
         let message =
-            default_origin_direct_text_message(default_user(), default_chat(), "some_text");
+            default_origin_direct_text_message(&default_user(), &default_chat(), "some_text");
         let chat = &message.any_message().direct().base.chat;
         let user = &message.any_message().direct().base.from;
         assert_eq!(
