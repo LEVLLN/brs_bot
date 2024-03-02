@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod tests {
     use Command::*;
@@ -24,10 +23,10 @@ mod tests {
             (Token::Newline, false),
             (Token::Punctuation("-"), false),
         ]
-            .iter()
-            .for_each(|(input, output)| {
-                assert_eq!(is_bot_call(input), *output);
-            })
+        .iter()
+        .for_each(|(input, output)| {
+            assert_eq!(is_bot_call(input), *output);
+        })
     }
 
     #[test]
@@ -38,8 +37,8 @@ mod tests {
             ("хлеб", Err(ProcessError::Next)),
             ("Хлеб", Err(ProcessError::Next)),
         ]
-            .iter()
-            .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output));
+        .iter()
+        .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output));
     }
 
     #[test]
@@ -75,7 +74,7 @@ mod tests {
                     command: &Add,
                     command_aliases: &[Token::Word("добавь")],
                     control_item: Some(&ControlItem::MorphWord),
-                    values: Box::new([&[Token::Word("утка")]]),
+                    split_values: true,
                     rest: &[Token::Word("утка")],
                 }),
             ),
@@ -85,13 +84,13 @@ mod tests {
                     command: &Add,
                     command_aliases: &[Token::Word("добавь")],
                     control_item: Some(&ControlItem::MorphWord),
-                    values: Box::new([&[Token::Word("утка")]]),
+                    split_values: true,
                     rest: &[Token::Word("утка")],
                 }),
             ),
         ]
-            .iter()
-            .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output));
+        .iter()
+        .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output));
     }
 
     #[test]
@@ -103,7 +102,7 @@ mod tests {
                     command: &Help,
                     command_aliases: &[Token::Word("хелп")],
                     control_item: None,
-                    values: Box::new([&[]]),
+                    split_values: false,
                     rest: &[],
                 }),
             ),
@@ -113,7 +112,7 @@ mod tests {
                     command: &Help,
                     command_aliases: &[Token::Word("хелп")],
                     control_item: None,
-                    values: Box::new([&[Token::Word("бред")]]),
+                    split_values: false,
                     rest: &[Token::Word("бред")],
                 }),
             ),
@@ -123,13 +122,13 @@ mod tests {
                     command: &Help,
                     command_aliases: &[Token::Word("хелп")],
                     control_item: None,
-                    values: Box::new([&[Token::Word("бред"), Token::Word("бред")]]),
+                    split_values: false,
                     rest: &[Token::Word("бред"), Token::Word("бред")],
                 }),
             ),
         ]
-            .iter()
-            .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output));
+        .iter()
+        .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output));
     }
 
     #[test]
@@ -141,14 +140,16 @@ mod tests {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
-                    values: Box::new([&[]]),
+                    split_values: false,
                     rest: &[],
                 }),
                 true,
             ),
             (
                 "хлеб покажи",
-                Err(ProcessError::Feedback {message: "Необходимо выбрать сообщение в ответ"}),
+                Err(ProcessError::Feedback {
+                    message: "Необходимо выбрать сообщение в ответ",
+                }),
                 false,
             ),
             (
@@ -157,14 +158,16 @@ mod tests {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
-                    values: Box::new([&[]]),
+                    split_values: false,
                     rest: &[],
                 }),
                 true,
             ),
             (
                 "хлеб покажи подстроку",
-                Err(ProcessError::Feedback {message: "Необходимо выбрать сообщение в ответ"}),
+                Err(ProcessError::Feedback {
+                    message: "Необходимо выбрать сообщение в ответ",
+                }),
                 false,
             ),
             (
@@ -173,14 +176,16 @@ mod tests {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
-                    values: Box::new([&[]]),
+                    split_values: false,
                     rest: &[],
                 }),
                 true,
             ),
             (
                 "хлеб покажи подстроки",
-                Err(ProcessError::Feedback {message: "Необходимо выбрать сообщение в ответ"}),
+                Err(ProcessError::Feedback {
+                    message: "Необходимо выбрать сообщение в ответ",
+                }),
                 false,
             ),
             (
@@ -189,14 +194,16 @@ mod tests {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
-                    values: Box::new([&[Token::Word("бред")]]),
+                    split_values: false,
                     rest: &[Token::Word("бред")],
                 }),
                 true,
             ),
             (
                 "хлеб покажи подстроку бред",
-                Err(ProcessError::Feedback {message: "Необходимо выбрать сообщение в ответ"}),
+                Err(ProcessError::Feedback {
+                    message: "Необходимо выбрать сообщение в ответ",
+                }),
                 false,
             ),
             (
@@ -205,7 +212,7 @@ mod tests {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::Substring),
-                    values: Box::new([&[Token::Word("обед")]]),
+                    split_values: false,
                     rest: &[Token::Word("обед")],
                 }),
                 true,
@@ -216,7 +223,7 @@ mod tests {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::MorphWord),
-                    values: Box::new([&[]]),
+                    split_values: false,
                     rest: &[],
                 }),
                 true,
@@ -227,14 +234,16 @@ mod tests {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
                     control_item: Some(&ControlItem::KeyWord),
-                    values: Box::new([&[Token::Word("обед")]]),
+                    split_values: false,
                     rest: &[Token::Word("обед")],
                 }),
                 true,
             ),
         ]
-            .iter()
-            .for_each(|(input, output, has_reply)| assert_eq!(parse_command(&tokenize(input), *has_reply), *output));
+        .iter()
+        .for_each(|(input, output, has_reply)| {
+            assert_eq!(parse_command(&tokenize(input), *has_reply), *output)
+        });
     }
 
     #[test]
@@ -246,7 +255,7 @@ mod tests {
                     command: &Who,
                     command_aliases: &[Token::Word("кто")],
                     control_item: None,
-                    values: Box::new([&[Token::Word("булочка"), Token::Punctuation("?")]]),
+                    split_values: false,
                     rest: &[Token::Word("булочка"), Token::Punctuation("?")],
                 }),
             ),
@@ -256,7 +265,7 @@ mod tests {
                     command: &Who,
                     command_aliases: &[Token::Word("КТО")],
                     control_item: None,
-                    values: Box::new([&[Token::Word("булочка"), Token::Punctuation("?")]]),
+                    split_values: false,
                     rest: &[Token::Word("булочка"), Token::Punctuation("?")],
                 }),
             ),
@@ -266,7 +275,7 @@ mod tests {
                     command: &Who,
                     command_aliases: &[Token::Word("кто")],
                     control_item: None,
-                    values: Box::new([&[Token::Word("булочка"), Token::Punctuation("?")]]),
+                    split_values: false,
                     rest: &[Token::Word("булочка"), Token::Punctuation("?")],
                 }),
             ),
@@ -276,7 +285,7 @@ mod tests {
                     command: &Who,
                     command_aliases: &[Token::Word("who")],
                     control_item: None,
-                    values: Box::new([&[Token::Word("булочка"), Token::Punctuation("?")]]),
+                    split_values: false,
                     rest: &[Token::Word("булочка"), Token::Punctuation("?")],
                 }),
             ),
@@ -286,7 +295,7 @@ mod tests {
                     command: &Who,
                     command_aliases: &[Token::Word("кто")],
                     control_item: None,
-                    values: Box::new([&[Token::Punctuation("?")]]),
+                    split_values: false,
                     rest: &[Token::Punctuation("?")],
                 }),
             ),
@@ -296,25 +305,25 @@ mod tests {
                     command: &Who,
                     command_aliases: &[Token::Word("кто")],
                     control_item: None,
-                    values: Box::new([&[]]),
+                    split_values: false,
                     rest: &[],
                 }),
             ),
         ]
-            .iter()
-            .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output))
+        .iter()
+        .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output))
     }
 
     #[test]
     fn test_parse_answer_change() {
         [
             (
-                "хлеб процент срабатывания",
+                "хлеб процент срабатывания бреда",
                 Ok(CommandContainer {
                     command: &AnswerChance,
                     command_aliases: &[Token::Word("процент"), Token::Word("срабатывания")],
-                    control_item: None,
-                    values: Box::new([&[]]),
+                    control_item: Some(&ControlItem::MorphWord),
+                    split_values: false,
                     rest: &[],
                 }),
             ),
@@ -323,8 +332,8 @@ mod tests {
                 Ok(CommandContainer {
                     command: &AnswerChance,
                     command_aliases: &[Token::Word("процент")],
-                    control_item: None,
-                    values: Box::new([&[]]),
+                    control_item: Some(&ControlItem::Substring),
+                    split_values: false,
                     rest: &[],
                 }),
             ),
@@ -333,14 +342,14 @@ mod tests {
                 Ok(CommandContainer {
                     command: &AnswerChance,
                     command_aliases: &[Token::Word("процент")],
-                    control_item: None,
-                    values: Box::new([&[Token::Word("20")]]),
+                    control_item: Some(&ControlItem::Substring),
+                    split_values: false,
                     rest: &[Token::Word("20")],
                 }),
             ),
         ]
-            .iter()
-            .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output))
+        .iter()
+        .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output))
     }
 
     #[test]
@@ -358,7 +367,7 @@ mod tests {
                     command: &Check,
                     command_aliases: &[Token::Word("проверь")],
                     control_item: Some(&ControlItem::Substring),
-                    values: Box::new([&[Token::Word("нога")]]),
+                    split_values: false,
                     rest: &[Token::Word("нога")],
                 }),
             ),
@@ -368,12 +377,12 @@ mod tests {
                     command: &Check,
                     command_aliases: &[Token::Word("проверь")],
                     control_item: Some(&ControlItem::Trigger),
-                    values: Box::new([&[Token::Word("нога")]]),
+                    split_values: false,
                     rest: &[Token::Word("нога")],
                 }),
             ),
         ]
-            .iter()
-            .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output))
+        .iter()
+        .for_each(|(input, output)| assert_eq!(parse_command(&tokenize(input), false), *output))
     }
 }

@@ -11,7 +11,7 @@ use crate::common::db::{ChatId, ChatToMemberId, MemberId};
 use crate::common::error::ProcessError;
 use crate::common::lexer::{tokenize, Token};
 use crate::common::request::RequestPayload;
-use crate::common::response::{BaseBody, LinkPreviewOption, ResponseMessage};
+use crate::common::response::{text_message, ResponseMessage};
 use crate::common::telegram_client::send_message;
 use crate::common::user_service::process_user_and_chat;
 
@@ -113,17 +113,13 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
                         "User error, sends feedback: {:?} for {:?}",
                         message, chat_db_id
                     );
+
                     send_message(
-                        &ResponseMessage::Text {
-                            base_body: BaseBody {
-                                chat_id: request_payload.any_message().direct().base.chat.id,
-                                reply_to_message_id: Some(
-                                    request_payload.any_message().direct().base.message_id,
-                                ),
-                            },
-                            text: message.to_string(),
-                            link_preview_options: LinkPreviewOption { is_disabled: false },
-                        },
+                        &text_message(
+                            message.to_string(),
+                            request_payload.any_message().direct().base.chat.id,
+                            request_payload.any_message().direct().base.message_id,
+                        ),
                         &chat_db_id,
                     )
                     .await;

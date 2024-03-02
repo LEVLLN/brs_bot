@@ -169,8 +169,9 @@ impl Chat {
     ) -> Result<ChatId, Error> {
         query(
             "INSERT INTO chats \
-        (is_active, chat_id, name, morph_answer_chance, is_openai_enabled, created_at, updated_at) \
-        VALUES (true, $1, $2, 15, false, now(), now())\
+        (is_active, chat_id, name, morph_answer_chance, substring_answer_chance, \
+        is_openai_enabled, created_at, updated_at) \
+        VALUES (true, $1, $2, 15, 15, false, now(), now())\
         RETURNING id;",
         )
         .bind(chat_id)
@@ -186,6 +187,50 @@ impl Chat {
     ) -> Result<ChatId, Error> {
         query("UPDATE chats SET name = $1, updated_at = now() where chat_id = $2 RETURNING id;")
             .bind(name)
+            .bind(chat_id)
+            .fetch_one(pool)
+            .await
+            .map(|x| x.get::<ChatId, _>("id"))
+    }
+
+    pub async fn substring_answer_chance(pool: &Pool<Postgres>, chat_id: &ChatId) -> Option<i16> {
+        query("SELECT substring_answer_chance FROM chats WHERE id = $1")
+            .bind(chat_id)
+            .fetch_one(pool)
+            .await
+            .ok()
+            .map(|x| x.get::<i16, _>("substring_answer_chance"))
+    }
+
+    pub async fn morph_answer_chance(pool: &Pool<Postgres>, chat_id: &ChatId) -> Option<i16> {
+        query("SELECT morph_answer_chance FROM chats WHERE id = $1")
+            .bind(chat_id)
+            .fetch_one(pool)
+            .await
+            .ok()
+            .map(|x| x.get::<i16, _>("morph_answer_chance"))
+    }
+
+    pub async fn update_substring_answer_chance(
+        pool: &Pool<Postgres>,
+        chat_id: &ChatId,
+        answer_chance: i16,
+    ) -> Result<ChatId, Error> {
+        query("UPDATE chats set substring_answer_chance = $1 WHERE id = $2 RETURNING id;")
+            .bind(answer_chance)
+            .bind(chat_id)
+            .fetch_one(pool)
+            .await
+            .map(|x| x.get::<ChatId, _>("id"))
+    }
+
+    pub async fn update_morph_answer_chance(
+        pool: &Pool<Postgres>,
+        chat_id: &ChatId,
+        answer_chance: i16,
+    ) -> Result<ChatId, Error> {
+        query("UPDATE chats set morph_answer_chance = $1 WHERE id = $2 RETURNING id;")
+            .bind(answer_chance)
             .bind(chat_id)
             .fetch_one(pool)
             .await

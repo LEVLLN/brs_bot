@@ -44,6 +44,7 @@ pub struct CommandSetting<'a> {
     pub available_control_items: Option<Vec<ControlItem>>,
     pub default_control_item: Option<ControlItem>,
     pub required_value: bool,
+    pub get_or_set_value: bool,
     pub required_reply: bool,
 }
 
@@ -60,6 +61,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -87,6 +89,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -94,11 +97,16 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &AnswerChance,
                 CommandSetting {
                     aliases: vec!["процент", "процент срабатывания"],
-                    description: "",
+                    description: "Показ и установка процента автоматического \
+                    срабатывания на сущности `бред` и `подстроки`. Чтобы показать значение - \
+                    достаточно вызвать команду и указать на какой из доступных объектов это показать, \
+                    без целочисленных параметров. Чтобы установить значение, \
+                    необходимо добавить параметр из целого числа от 0 до 100",
                     split_values: false,
-                    available_control_items: None,
-                    default_control_item: None,
-                    required_value: false,
+                    available_control_items: Some(vec![MorphWord, Substring]),
+                    default_control_item: Some(Substring),
+                    required_value: true,
+                    get_or_set_value: true,
                     required_reply: false,
                 },
             ),
@@ -111,6 +119,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: Some(vec![Trigger, MorphWord, Substring, KeyWord]),
                     default_control_item: Some(Substring),
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: true,
                 },
             ),
@@ -123,6 +132,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: Some(vec![MorphWord]),
                     default_control_item: None,
                     required_value: true,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -135,6 +145,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: Some(vec![Trigger, Substring]),
                     default_control_item: Some(Substring),
                     required_value: true,
+                    get_or_set_value: false,
                     required_reply: true,
                 },
             ),
@@ -147,6 +158,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: Some(vec![Trigger, Substring]),
                     default_control_item: Some(Substring),
                     required_value: true,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -159,6 +171,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: true,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -171,6 +184,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: true,
                 },
             ),
@@ -183,6 +197,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -195,6 +210,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -207,6 +223,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -219,6 +236,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -231,6 +249,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: true,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -243,6 +262,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: true,
                 },
             ),
@@ -255,6 +275,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: true,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -267,6 +288,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: true,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -279,6 +301,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -291,6 +314,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -303,6 +327,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: None,
                     default_control_item: None,
                     required_value: false,
+                    get_or_set_value: false,
                     required_reply: false,
                 },
             ),
@@ -324,6 +349,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                     available_control_items: Some(_),
                     required_value: false,
                     required_reply: false,
+                    get_or_set_value: false,
                     ..
                 } => false,
                 _ => true,
@@ -342,12 +368,14 @@ pub enum ControlItem {
 
 impl ControlItem {
     fn try_from_token<'a>(token: &'a Token<'a>) -> Option<&'a Self> {
-        match token{
+        match token {
             x if [Word("триггер"), Word("триггеры")].contains(x) => Some(&Trigger),
-            x if [Word("подстроку"), Word("подстроки")].contains(x) => Some(&Substring),
-            x if [Word("бред")].contains(x) => Some(&MorphWord),
+            x if [Word("подстроку"), Word("подстроки"), Word("подстрок")].contains(x) => {
+                Some(&Substring)
+            }
+            x if [Word("бред"), Word("бреда")].contains(x) => Some(&MorphWord),
             x if [Word("ключ"), Word("ключи")].contains(x) => Some(&KeyWord),
-            _ => None
+            _ => None,
         }
     }
 
@@ -394,7 +422,7 @@ pub struct CommandContainer<'a> {
     pub command: &'a Command,
     pub command_aliases: &'a [Token<'a>],
     pub control_item: Option<&'a ControlItem>,
-    pub values: Box<[&'a [Token<'a>]]>,
+    pub split_values: bool,
     pub rest: &'a [Token<'a>],
 }
 
@@ -493,25 +521,16 @@ pub fn parse_command<'a>(
                 },
             }
             .and_then(|(control_item, rest)| match rest {
-                [] if settings.required_value => Err(ProcessError::Feedback {
-                    message: "Необходимо указать значения",
-                }),
-                rest if settings.split_values => {
-                    // TODO: Надо разделить по значениям на Vec<Vec<Token>>
-                    println!("NEED SPLIT VALUES!!!");
-                    Ok(CommandContainer {
-                        command,
-                        command_aliases,
-                        control_item,
-                        values: Box::new([rest]),
-                        rest,
+                [] if settings.required_value && !settings.get_or_set_value => {
+                    Err(ProcessError::Feedback {
+                        message: "Необходимо указать значения",
                     })
                 }
                 _ => Ok(CommandContainer {
                     command,
                     command_aliases,
                     control_item,
-                    values: Box::new([rest]),
+                    split_values: settings.split_values,
                     rest,
                 }),
             })

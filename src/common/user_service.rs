@@ -192,3 +192,77 @@ pub async fn random_user_from_chat<'a>(
         }
     }
 }
+
+pub async fn substring_answer_chance<'a>(
+    pool: &PgPool,
+    chat_id: &ChatId,
+) -> Result<i16, ProcessError<'a>> {
+    match ChatDB::substring_answer_chance(pool, chat_id).await {
+        None => Err(ProcessError::Feedback {
+            message: "Не заполнен процент срабатывания подстрок",
+        }),
+        Some(substring_answer_chance) => Ok(substring_answer_chance),
+    }
+}
+
+pub async fn morph_answer_chance<'a>(
+    pool: &PgPool,
+    chat_id: &ChatId,
+) -> Result<i16, ProcessError<'a>> {
+    match ChatDB::morph_answer_chance(pool, chat_id).await {
+        None => Err(ProcessError::Feedback {
+            message: "Не заполнен процент срабатывания бреда",
+        }),
+        Some(morph_answer_chance) => Ok(morph_answer_chance),
+    }
+}
+
+pub async fn set_substring_answer_chance<'a>(
+    pool: &PgPool,
+    chat_id: &ChatId,
+    answer_chance: i16,
+) -> Result<(), ProcessError<'a>> {
+    match ChatDB::update_substring_answer_chance(pool, chat_id, answer_chance).await {
+        Ok(_) => {
+            info!(
+                "update_substring_answer_chance success to value: {} for {:?}",
+                answer_chance, chat_id
+            );
+            Ok(())
+        }
+        Err(err) => {
+            warn!(
+                "update_substring_answer_chance failed with error: {} for {:?} ",
+                err, chat_id
+            );
+            Err(ProcessError::Feedback {
+                message: "Произошла ошибка обновления процента срабатывания подстрок",
+            })
+        }
+    }
+}
+
+pub async fn set_morph_answer_chance<'a>(
+    pool: &PgPool,
+    chat_id: &ChatId,
+    answer_chance: i16,
+) -> Result<(), ProcessError<'a>> {
+    match ChatDB::update_morph_answer_chance(pool, chat_id, answer_chance).await {
+        Ok(_) => {
+            info!(
+                "update_morph_answer_chance success to value: {} for {:?}",
+                answer_chance, chat_id
+            );
+            Ok(())
+        }
+        Err(err) => {
+            warn!(
+                "update_morph_answer_chance failed with error: {} for {:?} ",
+                err, chat_id
+            );
+            Err(ProcessError::Feedback {
+                message: "Произошла ошибка обновления процента срабатывания бреда",
+            })
+        }
+    }
+}

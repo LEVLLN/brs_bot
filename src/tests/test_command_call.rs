@@ -3,6 +3,7 @@ mod tests {
     use assert_json_diff::assert_json_include;
     use serde_json::json;
     use sqlx::PgPool;
+    use crate::common::db::Chat as ChatDB;
 
     use crate::common::lexer::tokenize;
     use crate::common::message_service::{handle_processor, Processor};
@@ -51,6 +52,43 @@ mod tests {
                 expected: json!({"text": output})
             );
         }
+    }
+
+    #[sqlx::test(
+    migrations = "./migrations",
+    fixtures(path = "sqlx_fixtures", scripts("default_chat", "default_user"))
+    )]
+    async fn test_show_answer_chance(pool: PgPool) {
+        for (input, output) in [
+            ("хлеб процент", "12"),
+            ("хлеб процент подстрок", "12"),
+            ("хлеб процент бреда", "11"),
+        ] {
+            assert_json_include!(
+                actual: json!(call_command(&pool, input).await),
+                expected: json!({"text": output})
+            );
+        }
+    }
+
+    #[sqlx::test(
+    migrations = "./migrations",
+    fixtures(path = "sqlx_fixtures", scripts("default_chat", "default_user"))
+    )]
+    async fn test_set_morph_answer_chance(pool: PgPool) {
+        call_command(&pool, "хлеб процент бреда 10").await;
+        let (_, chat_db_id, _) = db_existed_chat_member(&pool).await;
+        assert_eq!(Some(10), ChatDB::morph_answer_chance(&pool, &chat_db_id).await);
+    }
+
+    #[sqlx::test(
+    migrations = "./migrations",
+    fixtures(path = "sqlx_fixtures", scripts("default_chat", "default_user"))
+    )]
+    async fn test_set_substring_answer_chance(pool: PgPool) {
+        call_command(&pool, "хлеб процент 25").await;
+        let (_, chat_db_id, _) = db_existed_chat_member(&pool).await;
+        assert_eq!(Some(25), ChatDB::substring_answer_chance(&pool, &chat_db_id).await);
     }
 
     #[sqlx::test(

@@ -5,14 +5,18 @@ use sqlx::PgPool;
 use unicase::UniCase;
 
 use crate::common::command_parser::{
-    find_command, parse_command, Command, CommandContainer, CommandSetting, COMMAND_SETTING_MAP,
+    find_command, parse_command, Command, CommandContainer, CommandSetting, ControlItem,
+    COMMAND_SETTING_MAP,
 };
 use crate::common::db::{ChatId, ChatToMemberId, MemberId};
 use crate::common::error::ProcessError;
 use crate::common::lexer::{tokens_to_string, Token};
 use crate::common::request::{Message, MessageBody};
-use crate::common::response::{BaseBody, LinkPreviewOption, ResponseMessage};
-use crate::common::user_service::{pretty_username, random_user_from_chat};
+use crate::common::response::{text_message, ResponseMessage};
+use crate::common::user_service::{
+    morph_answer_chance, pretty_username, random_user_from_chat, set_morph_answer_chance,
+    set_substring_answer_chance, substring_answer_chance,
+};
 
 static HELP_MAIN: Lazy<String> = Lazy::new(|| {
     String::from("Привет. Я бот и меня зовут Хлебушек.\n\
@@ -135,12 +139,8 @@ fn help<'a>(
     command_container: &CommandContainer<'a>,
     direct_message: &MessageBody,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
-    Ok(ResponseMessage::Text {
-        base_body: BaseBody {
-            chat_id: direct_message.base.chat.id,
-            reply_to_message_id: Some(direct_message.base.message_id),
-        },
-        text: match command_container.values[0] {
+    Ok(text_message(
+        match command_container.rest {
             [argument, ..] if argument == &Token::Word("механика") => {
                 HELP_INSTRUCTIONS.to_owned()
             }
@@ -152,8 +152,9 @@ fn help<'a>(
                 Some((command, _, _)) => COMMAND_HELP_MAP.get(command).unwrap().to_owned(),
             },
         },
-        link_preview_options: LinkPreviewOption { is_disabled: true },
-    })
+        direct_message.base.chat.id,
+        direct_message.base.message_id,
+    ))
 }
 
 static WHO_FORMS: Lazy<HashMap<UniCase<&'static str>, &str>> = Lazy::new(|| {
@@ -181,8 +182,8 @@ async fn who<'a>(
     chat_db_id: &ChatId,
     direct_message: &MessageBody,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
-    Ok(ResponseMessage::Text {
-        text: match (
+    Ok(text_message(
+        match (
             tokens_to_string(command_container.rest, true),
             WHO_FORMS
                 .get(&UniCase::new(&match command_container.command_aliases {
@@ -207,14 +208,57 @@ async fn who<'a>(
             }
             (_, _, username) => username,
         },
-        link_preview_options: LinkPreviewOption { is_disabled: false },
-        base_body: BaseBody {
-            chat_id: direct_message.base.chat.id,
-            reply_to_message_id: Some(direct_message.base.message_id),
-        },
-    })
+        direct_message.base.chat.id,
+        direct_message.base.message_id,
+    ))
 }
 
+async fn answer_chance<'a>(
+    pool: &PgPool,
+    command_container: &CommandContainer<'a>,
+    chat_db_id: &ChatId,
+    direct_message: &MessageBody,
+) -> Result<ResponseMessage, ProcessError<'a>> {
+    let control_item = command_container.control_item.unwrap();
+    match command_container.rest {
+        [] => match control_item {
+            ControlItem::Substring => substring_answer_chance(pool, chat_db_id).await,
+            ControlItem::MorphWord => morph_answer_chance(pool, chat_db_id).await,
+            _ => Err(ProcessError::Feedback {
+                message: "Объект редактирования не поддерживается",
+            }),
+        }
+        .map(|x| {
+            Ok(text_message(
+                x.to_string(),
+                direct_message.base.chat.id,
+                direct_message.base.message_id,
+            ))
+        })?,
+        [Token::Word(_answer_chance)] => match _answer_chance.parse::<i16>() {
+            Ok(x) if (0..=100).contains(&x) => match control_item {
+                ControlItem::Substring => set_substring_answer_chance(pool, chat_db_id, x).await,
+                ControlItem::MorphWord => set_morph_answer_chance(pool, chat_db_id, x).await,
+                _ => Err(ProcessError::Feedback {
+                    message: "Объект редактирования не поддерживается",
+                }),
+            }
+            .map(|_| {
+                Ok(text_message(
+                    "Сделано".to_string(),
+                    direct_message.base.chat.id,
+                    direct_message.base.message_id,
+                ))
+            })?,
+            _ => Err(ProcessError::Feedback {
+                message: "Указано неверное значение. Должно быть целое число от 0 до 100",
+            }),
+        },
+        _ => Err(ProcessError::Feedback {
+            message: "Указано неверное значение. Должно быть целое число от 0 до 100",
+        }),
+    }
+}
 pub async fn process_command<'a>(
     tokens: &'a Option<Vec<Token<'a>>>,
     message: &'a Message,
@@ -232,7 +276,9 @@ pub async fn process_command<'a>(
         Ok(command_container) => match &command_container.command {
             Command::Help => help(&command_container, message.direct()),
             Command::Who => who(pool, &command_container, chat_db_id, message.direct()).await,
-            Command::AnswerChance => Err(ProcessError::Next),
+            Command::AnswerChance => {
+                answer_chance(pool, &command_container, chat_db_id, message.direct()).await
+            }
             Command::Show => Err(ProcessError::Next),
             Command::Add => Err(ProcessError::Next),
             Command::Remember => Err(ProcessError::Next),
