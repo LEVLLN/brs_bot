@@ -9,6 +9,10 @@ pub struct ChatToMemberId(i32);
 #[sqlx(transparent)]
 pub struct MemberId(i32);
 
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
+#[sqlx(transparent)]
+pub struct AnswerEntityId(i32);
+
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct Member {
     pub id: MemberId,
@@ -28,6 +32,36 @@ pub struct Chat {
     pub id: ChatId,
     pub chat_id: i64,
     pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type, Deserialize, Serialize)]
+#[sqlx(type_name = "answerentitycontenttypesenum", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EntityContentType {
+    Text,
+    Voice,
+    Picture,
+    Animation,
+    Video,
+    VideoNone,
+    Sticker,
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type, Deserialize, Serialize)]
+#[sqlx(type_name = "answerentitytypesenum", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EntityReactionType {
+    Trigger,
+    Substring,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
+pub struct AnswerEntity {
+    pub id: AnswerEntityId,
+    pub content_type: EntityContentType,
+    pub reaction_type: EntityReactionType,
+    pub key: String,
+    pub value: String,
+    pub description: String,
+    pub file_unique_id: String,
 }
 
 impl ChatId {
