@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 use std::iter::Iterator;
 
-use log::info;
+use crate::common::callback_service::process_callback;
+use log::{info};
 use sqlx::PgPool;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -35,6 +36,7 @@ async fn process_auto_morph<'a>() -> Result<ResponseMessage, ProcessError<'a>> {
 
 #[derive(Debug, Eq, PartialEq, EnumIter, Clone)]
 pub enum Processor {
+    Callback,
     Command,
     AutoTrigger,
     AutoSubstring,
@@ -65,6 +67,16 @@ pub async fn handle_processor<'a>(
         Processor::AutoTrigger => process_auto_entity(AutoEntityRegime::Trigger).await,
         Processor::AutoSubstring => process_auto_entity(AutoEntityRegime::Substring).await,
         Processor::AutoMorph => process_auto_morph().await,
+        Processor::Callback => {
+            process_callback(
+                request_payload,
+                pool,
+                member_db_id,
+                chat_db_id,
+                chat_to_member_db_id,
+            )
+            .await
+        }
     }
 }
 pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload) {
@@ -72,6 +84,7 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
         pool,
         &request_payload.any_message().direct().base.from,
         &request_payload.any_message().direct().base.chat,
+        &request_payload.any_message().reply_markup().is_some(),
     )
     .await
     {

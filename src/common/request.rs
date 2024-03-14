@@ -96,24 +96,37 @@ pub struct MessageBody {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct ReplyMarkupButton {
+    pub text: String,
+    pub callback_data: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct ReplyMarkup {
+    pub inline_keyboard: Vec<Vec<ReplyMarkupButton>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Message {
-    Common {
-        #[serde(flatten)]
-        direct: MessageBody,
-    },
     Replied {
         #[serde(flatten)]
         direct: MessageBody,
         #[serde(alias = "reply_to_message")]
         reply: Box<MessageBody>,
+        reply_markup: Option<ReplyMarkup>
+    },
+    Common {
+        #[serde(flatten)]
+        direct: MessageBody,
+        reply_markup: Option<ReplyMarkup>
     },
 }
 
 impl Message {
     pub fn direct(&self) -> &MessageBody {
         match &self {
-            Message::Common { direct } | Message::Replied { direct, .. } => direct,
+            Message::Common { direct, .. } | Message::Replied { direct, .. } => direct,
         }
     }
     pub fn reply(&self) -> Option<&MessageBody> {
@@ -123,6 +136,19 @@ impl Message {
             None
         }
     }
+    
+    pub fn reply_markup(&self) -> &Option<ReplyMarkup> {
+        match &self {
+            Message::Common { reply_markup, .. } | Message::Replied { reply_markup, .. } => reply_markup,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct CallbackQuery {
+    id: String,
+    from: User,
+    message: Message,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -136,6 +162,10 @@ pub enum RequestPayload {
         update_id: u32,
         message: Message,
     },
+    Callback {
+        update_id: u32,
+        callback_query: CallbackQuery,
+    },
 }
 
 impl RequestPayload {
@@ -143,6 +173,7 @@ impl RequestPayload {
         match self {
             RequestPayload::Edited { edited_message, .. } => edited_message,
             RequestPayload::Origin { message, .. } => message,
+            RequestPayload::Callback { callback_query, .. } => &callback_query.message,
         }
     }
 }

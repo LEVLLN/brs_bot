@@ -112,6 +112,7 @@ pub mod fixtures {
                         text: String::from(text),
                     },
                 },
+                reply_markup: None,
             },
         }
     }

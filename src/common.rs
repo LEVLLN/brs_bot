@@ -10,3 +10,4 @@ pub mod user_service;
 pub mod response;
 pub mod telegram_client;
 mod answer_entity_service;
+mod callback_service;

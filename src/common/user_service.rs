@@ -84,8 +84,10 @@ async fn process_chat<'a>(
 async fn process_user<'a>(
     pool: &Pool<Postgres>,
     user: &UserRequest,
+    is_bot_callback: &bool,
 ) -> Result<MemberId, ProcessError<'a>> {
-    if user.is_bot {
+    if user.is_bot && !is_bot_callback {
+        info!("User {user_id} is bot, Stop process", user_id = user.id);
         return Err(ProcessError::Stop);
     }
     let (username, first_name, last_name) = (
@@ -115,7 +117,9 @@ async fn process_user<'a>(
             Ok(member.id)
         }
     } else {
-        match MemberDB::create_member(pool, user.id, username, first_name, last_name).await {
+        match MemberDB::create_member(pool, user.id, username, first_name, last_name, user.is_bot)
+            .await
+        {
             Ok(member_id) => {
                 info!(
                     "Member id: {} was created to record: {:?}",
@@ -155,7 +159,7 @@ pub async fn bind_user_to_chat<'a>(
                 );
                 Err(ProcessError::Stop)
             }
-        }
+        },
     }
 }
 
@@ -163,8 +167,12 @@ pub async fn process_user_and_chat<'a>(
     pool: &Pool<Postgres>,
     user: &UserRequest,
     chat: &ChatRequest,
+    is_bot_callback: &bool,
 ) -> Result<(MemberId, ChatId, ChatToMemberId), ProcessError<'a>> {
-    match try_join!(process_user(pool, user), process_chat(pool, chat)) {
+    match try_join!(
+        process_user(pool, user, is_bot_callback),
+        process_chat(pool, chat)
+    ) {
         Ok((member_id, chat_id)) => bind_user_to_chat(pool, member_id, chat_id).await,
         Err(e) => Err(e),
     }

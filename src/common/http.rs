@@ -17,8 +17,8 @@ pub async fn telegram_webhook_route(
             process_message(&pool, &request_payload).await;
             StatusCode::OK
         }
-        Err(_) => {
-            warn!("Receipt not supported body.");
+        Err(err) => {
+            warn!("Receipt not supported body. {err}");
             StatusCode::OK
         }
     }

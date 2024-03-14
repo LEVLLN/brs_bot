@@ -129,17 +129,19 @@ impl Member {
         username: &str,
         first_name: &str,
         last_name: &str,
+        is_bot: bool,
     ) -> Result<MemberId, Error> {
         query(
             "INSERT INTO members \
         (is_active, member_id, username, first_name, last_name, is_bot, created_at, updated_at) \
-        VALUES (true, $1, $2, $3, $4, false, now(), now())\
+        VALUES (true, $1, $2, $3, $4, $5, now(), now())\
         RETURNING id",
         )
         .bind(member_id)
         .bind(username)
         .bind(first_name)
         .bind(last_name)
+        .bind(is_bot)
         .fetch_one(pool)
         .await
         .map(|x| x.get::<MemberId, _>("id"))
@@ -183,8 +185,8 @@ impl Member {
 
     pub async fn chat_members(pool: &Pool<Postgres>, chat_id: &ChatId) -> Vec<MemberId> {
         query(
-            "SELECT member_id FROM chats_to_members \
-        WHERE chat_id = $1 AND updated_at >= now() - INTERVAL '30 DAYS'",
+            "SELECT chats_to_members.member_id FROM chats_to_members JOIN members on members.id = chats_to_members.member_id \
+        WHERE chats_to_members.chat_id = $1 AND chats_to_members.updated_at >= now() - INTERVAL '30 DAYS' AND members.is_bot is false",
         )
         .bind(chat_id)
         .fetch_all(pool)
