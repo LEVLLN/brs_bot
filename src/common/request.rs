@@ -61,6 +61,14 @@ pub enum MessageExt {
         animation: Content,
         caption: Option<String>,
     },
+    Document {
+        document: Content,
+        caption: Option<String>,
+    },
+    Audio {
+        audio: Content,
+        caption: Option<String>,
+    },
 }
 
 impl MessageExt {
@@ -70,7 +78,9 @@ impl MessageExt {
             Photo { caption, .. }
             | Video { caption, .. }
             | Voice { caption, .. }
-            | Animation { caption, .. } => caption.as_deref(),
+            | Animation { caption, .. }
+            | Audio { caption, .. }
+            | Document { caption, .. } => caption.as_deref(),
             Text { text, .. } => Some(text),
             VideoNote { .. } | Sticker { .. } => None,
         }
@@ -88,29 +98,28 @@ pub struct MessageBody {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Message {
-    Common{
+    Common {
         #[serde(flatten)]
-        direct: MessageBody
+        direct: MessageBody,
     },
-    Replied{
+    Replied {
         #[serde(flatten)]
         direct: MessageBody,
         #[serde(alias = "reply_to_message")]
         reply: Box<MessageBody>,
-    }
+    },
 }
 
 impl Message {
     pub fn direct(&self) -> &MessageBody {
         match &self {
-            Message::Common {direct} | Message::Replied {direct, ..} => direct
+            Message::Common { direct } | Message::Replied { direct, .. } => direct,
         }
     }
     pub fn reply(&self) -> Option<&MessageBody> {
-        if let Message::Replied {reply, ..} = self {
+        if let Message::Replied { reply, .. } = self {
             Some(reply)
-        }
-        else {
+        } else {
             None
         }
     }

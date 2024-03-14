@@ -114,10 +114,10 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Show,
                 CommandSetting {
                     aliases: vec!["покажи", "show"],
-                    description: "",
+                    description: "Показ ключей для контента, который выбран в качестве ответа",
                     split_values: false,
-                    available_control_items: Some(vec![Trigger, MorphWord, Substring, KeyWord]),
-                    default_control_item: Some(Substring),
+                    available_control_items: Some(vec![KeyWord]),
+                    default_control_item: Some(KeyWord),
                     required_value: false,
                     get_or_set_value: false,
                     required_reply: true,
@@ -127,7 +127,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Add,
                 CommandSetting {
                     aliases: vec!["добавь", "add"],
-                    description: "",
+                    description: "Добавление слова в словарь для бреда",
                     split_values: true,
                     available_control_items: Some(vec![MorphWord]),
                     default_control_item: None,
@@ -140,7 +140,8 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Remember,
                 CommandSetting {
                     aliases: vec!["запомни", "remember"],
-                    description: "",
+                    description: "Сохранение контента из выбранного \
+                    в ответе сообщения на указанные ключи",
                     split_values: true,
                     available_control_items: Some(vec![Trigger, Substring]),
                     default_control_item: Some(Substring),
@@ -153,7 +154,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Check,
                 CommandSetting {
                     aliases: vec!["проверь", "проверка", "check"],
-                    description: "",
+                    description: "Проверка на наличие контента из указанных ключей в параметрах",
                     split_values: false,
                     available_control_items: Some(vec![Trigger, Substring]),
                     default_control_item: Some(Substring),
@@ -166,7 +167,8 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Say,
                 CommandSetting {
                     aliases: vec!["скажи", "say"],
-                    description: "",
+                    description: "Повторение написанного текста \
+                    (скоро будет голосовым преобразователем)",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -179,7 +181,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Delete,
                 CommandSetting {
                     aliases: vec!["удали", "delete"],
-                    description: "",
+                    description: "Удаление контента, указанного в ответе сообщения",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -192,7 +194,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Couple,
                 CommandSetting {
                     aliases: vec!["парочка", "пара", "couple"],
-                    description: "",
+                    description: "Вывод пары случайных пользователей чата",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -205,7 +207,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Top,
                 CommandSetting {
                     aliases: vec!["топ", "top"],
-                    description: "",
+                    description: "Вывод списка пользователей чата в случайном порядке",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -218,7 +220,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Channel,
                 CommandSetting {
                     aliases: vec!["канал", "channel", "all"],
-                    description: "",
+                    description: "Отметка всех активных участников чата с тегами",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -231,7 +233,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &RandomChance,
                 CommandSetting {
                     aliases: vec!["вероятность", "шанс", "chance"],
-                    description: "",
+                    description: "Случайный процент числом",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -244,7 +246,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &RandomChoose,
                 CommandSetting {
                     aliases: vec!["выбери", "выбор", "choose"],
-                    description: "",
+                    description: "Выбор одного из нескольких вариантов",
                     split_values: true,
                     available_control_items: None,
                     default_control_item: None,
@@ -257,7 +259,8 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &GenerateNonsense,
                 CommandSetting {
                     aliases: vec!["бред", "давай", "nonsense"],
-                    description: "",
+                    description: "Искажение сообщения с заменой слов \
+                    из оригинала на слова сохраненные в словаре",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -270,7 +273,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Morph,
                 CommandSetting {
                     aliases: vec!["морф", "морфируй", "morph"],
-                    description: "",
+                    description: "Склонение указанного слова",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -283,7 +286,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &MorphDebug,
                 CommandSetting {
                     aliases: vec!["морф дебаг", "морфируй дебаг", "morph debug"],
-                    description: "",
+                    description: "Склонение указанного слова с выводом деталей",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -296,7 +299,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Quote,
                 CommandSetting {
                     aliases: vec!["цит", "цитата", "quote"],
-                    description: "",
+                    description: "Получить мудрую цитату",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -309,7 +312,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Joke,
                 CommandSetting {
                     aliases: vec!["анекдот", "анек", "joke"],
-                    description: "",
+                    description: "Получить анекдот",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,
@@ -322,7 +325,7 @@ pub static COMMAND_SETTING_MAP: Lazy<HashMap<&'static Command, CommandSetting<'s
                 &Advice,
                 CommandSetting {
                     aliases: vec!["совет", "advice"],
-                    description: "",
+                    description: "Получить совет",
                     split_values: false,
                     available_control_items: None,
                     default_control_item: None,

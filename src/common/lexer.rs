@@ -41,6 +41,10 @@ pub fn tokens_to_string<'a>(tokens: &'a [Token<'a>], remove_question_mark: bool)
         })
 }
 
+pub fn normalize_text(text: String) -> String{
+    text.to_ascii_lowercase().replace('ё', "е")
+}
+
 pub fn tokenize(text: &str) -> Vec<Token> {
     use Token::*;
     let mut token_list = vec![];

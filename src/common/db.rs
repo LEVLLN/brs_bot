@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{query, query_as, Error, FromRow, PgPool, Pool, Postgres, Row};
+use sqlx::{Error, FromRow, PgPool, Pool, Postgres, query, query_as, Row};
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
 #[sqlx(transparent)]
@@ -35,19 +35,27 @@ pub struct Chat {
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type, Deserialize, Serialize)]
-#[sqlx(type_name = "answerentitycontenttypesenum", rename_all = "SCREAMING_SNAKE_CASE")]
+#[sqlx(
+    type_name = "answerentitycontenttypesenum",
+    rename_all = "SCREAMING_SNAKE_CASE"
+)]
 pub enum EntityContentType {
     Text,
     Voice,
     Picture,
     Animation,
     Video,
-    VideoNone,
+    VideoNote,
     Sticker,
+    Audio,
+    Document,
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type, Deserialize, Serialize)]
-#[sqlx(type_name = "answerentitytypesenum", rename_all = "SCREAMING_SNAKE_CASE")]
+#[sqlx(
+    type_name = "answerentitytypesenum",
+    rename_all = "SCREAMING_SNAKE_CASE"
+)]
 pub enum EntityReactionType {
     Trigger,
     Substring,
@@ -56,12 +64,13 @@ pub enum EntityReactionType {
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct AnswerEntity {
     pub id: AnswerEntityId,
+    pub chat_id: ChatId,
     pub content_type: EntityContentType,
     pub reaction_type: EntityReactionType,
     pub key: String,
     pub value: String,
-    pub description: String,
-    pub file_unique_id: String,
+    pub description: Option<String>,
+    pub file_unique_id: Option<String>,
 }
 
 impl ChatId {
@@ -269,5 +278,31 @@ impl Chat {
             .fetch_one(pool)
             .await
             .map(|x| x.get::<ChatId, _>("id"))
+    }
+}
+
+impl AnswerEntity {
+    pub async fn find(
+        pool: &Pool<Postgres>,
+        chat_id: &ChatId,
+        keys: &[String],
+        entity_reaction_type: &EntityReactionType,
+    ) -> Vec<AnswerEntity> {
+        query_as::<_, AnswerEntity>(&format!(
+            "SELECT id, chat_id, content_type, value, \
+            reaction_type, key, description, file_unique_id \
+            FROM answer_entities \
+            WHERE key in ({key_list}) and chat_id = $1 and reaction_type = $2;",
+            key_list = keys.iter().fold(String::new(), |s, k| if s.is_empty() {
+                s + "'" + k + "'"
+            } else {
+                s + "," + "'" + k + "'"
+            })
+        ))
+        .bind(chat_id)
+        .bind(entity_reaction_type)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default()
     }
 }

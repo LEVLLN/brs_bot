@@ -13,7 +13,7 @@ mod tests {
         db_existed_chat_member, default_origin_direct_text_message, request_existed_chat_user,
     };
 
-    async fn call_command_success(pool: &PgPool, input_text: &str) -> ResponseMessage {
+    async fn call_command_direct(pool: &PgPool, input_text: &str) -> ResponseMessage {
         let (user, chat) = request_existed_chat_user().await;
         let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(pool).await;
         handle_processor(
@@ -49,7 +49,7 @@ mod tests {
             ),
         ] {
             assert_json_include!(
-                actual: json!(call_command_success(&pool, input).await),
+                actual: json!(call_command_direct(&pool, input).await),
                 expected: json!({"text": output})
             );
         }
@@ -66,7 +66,7 @@ mod tests {
             ("хлеб процент бреда", "11"),
         ] {
             assert_json_include!(
-                actual: json!(call_command_success(&pool, input).await),
+                actual: json!(call_command_direct(&pool, input).await),
                 expected: json!({"text": output})
             );
         }
@@ -143,7 +143,7 @@ mod tests {
         fixtures(path = "sqlx_fixtures", scripts("default_chat", "default_user"))
     )]
     async fn test_set_morph_answer_chance(pool: PgPool) {
-        call_command_success(&pool, "хлеб процент бреда 10").await;
+        call_command_direct(&pool, "хлеб процент бреда 10").await;
         let (_, chat_db_id, _) = db_existed_chat_member(&pool).await;
         assert_eq!(
             Some(10),
@@ -156,7 +156,7 @@ mod tests {
         fixtures(path = "sqlx_fixtures", scripts("default_chat", "default_user"))
     )]
     async fn test_set_substring_answer_chance(pool: PgPool) {
-        call_command_success(&pool, "хлеб процент 25").await;
+        call_command_direct(&pool, "хлеб процент 25").await;
         let (_, chat_db_id, _) = db_existed_chat_member(&pool).await;
         assert_eq!(
             Some(25),
@@ -175,11 +175,69 @@ mod tests {
             ("хлеб хелп механика", "Основные элементы"),
             ("хлеб хелп бред", r#"Команда: \"бред\""#),
         ] {
-            assert!(json!(call_command_success(&pool, input).await)
+            assert!(json!(call_command_direct(&pool, input).await)
                 .get("text")
                 .unwrap()
                 .to_string()
                 .contains(output));
+        }
+    }
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(path = "sqlx_fixtures", scripts("default_chat", "default_user"))
+    )]
+    async fn test_show_without_data(pool: PgPool) {
+        let (user, chat) = request_existed_chat_user().await;
+        let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(&pool).await;
+        let request_payload =
+            default_origin_direct_text_message(&user, &chat, "хлеб проверь несуществующий_ключ");
+        let tokens = &Some(tokenize("хлеб проверь несуществующий_ключ"));
+        if let ProcessError::Feedback { message: msg } = handle_processor(
+            &Processor::Command,
+            tokens,
+            &request_payload,
+            &pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+        .await
+        .unwrap_err()
+        {
+            assert_eq!(msg, "Ничего не было найдено");
+        } else {
+            panic!("Assertion error");
+        }
+    }
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(
+            path = "sqlx_fixtures",
+            scripts("default_chat", "default_user", "text_substring")
+        )
+    )]
+    async fn test_show_text_substring(pool: PgPool) {
+        if let ResponseMessage::Text { text, .. } =
+            call_command_direct(&pool, "хлеб проверь substring_key").await
+        {
+            assert_eq!(text, "substring_text_value");
+        }
+    }
+
+    #[sqlx::test(
+    migrations = "./migrations",
+    fixtures(
+    path = "sqlx_fixtures",
+    scripts("default_chat", "default_user", "text_trigger")
+    )
+    )]
+    async fn test_show_text_trigger(pool: PgPool) {
+        if let ResponseMessage::Text { text, .. } =
+            call_command_direct(&pool, "хлеб проверь триггер trigger_key").await
+        {
+            assert_eq!(text, "trigger_text_value");
         }
     }
 }

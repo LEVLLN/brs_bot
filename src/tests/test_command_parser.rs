@@ -139,7 +139,7 @@ mod tests {
                 Ok(CommandContainer {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
-                    control_item: Some(&ControlItem::Substring),
+                    control_item: Some(&ControlItem::KeyWord),
                     split_values: false,
                     rest: &[],
                 }),
@@ -153,54 +153,18 @@ mod tests {
                 false,
             ),
             (
-                "хлеб покажи подстроку",
+                "хлеб покажи ключи",
                 Ok(CommandContainer {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
-                    control_item: Some(&ControlItem::Substring),
+                    control_item: Some(&ControlItem::KeyWord),
                     split_values: false,
                     rest: &[],
                 }),
                 true,
             ),
             (
-                "хлеб покажи подстроку",
-                Err(ProcessError::Feedback {
-                    message: "Необходимо выбрать сообщение в ответ",
-                }),
-                false,
-            ),
-            (
-                "хлеб покажи подстроки",
-                Ok(CommandContainer {
-                    command: &Show,
-                    command_aliases: &[Token::Word("покажи")],
-                    control_item: Some(&ControlItem::Substring),
-                    split_values: false,
-                    rest: &[],
-                }),
-                true,
-            ),
-            (
-                "хлеб покажи подстроки",
-                Err(ProcessError::Feedback {
-                    message: "Необходимо выбрать сообщение в ответ",
-                }),
-                false,
-            ),
-            (
-                "хлеб покажи подстроку бред",
-                Ok(CommandContainer {
-                    command: &Show,
-                    command_aliases: &[Token::Word("покажи")],
-                    control_item: Some(&ControlItem::Substring),
-                    split_values: false,
-                    rest: &[Token::Word("бред")],
-                }),
-                true,
-            ),
-            (
-                "хлеб покажи подстроку бред",
+                "хлеб покажи ключи",
                 Err(ProcessError::Feedback {
                     message: "Необходимо выбрать сообщение в ответ",
                 }),
@@ -211,20 +175,9 @@ mod tests {
                 Ok(CommandContainer {
                     command: &Show,
                     command_aliases: &[Token::Word("покажи")],
-                    control_item: Some(&ControlItem::Substring),
+                    control_item: Some(&ControlItem::KeyWord),
                     split_values: false,
                     rest: &[Token::Word("обед")],
-                }),
-                true,
-            ),
-            (
-                "хлеб покажи бред",
-                Ok(CommandContainer {
-                    command: &Show,
-                    command_aliases: &[Token::Word("покажи")],
-                    control_item: Some(&ControlItem::MorphWord),
-                    split_values: false,
-                    rest: &[],
                 }),
                 true,
             ),

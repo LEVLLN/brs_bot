@@ -16,7 +16,14 @@ pub async fn send_message<'a>(response_message: &ResponseMessage, chat_db_id: &C
                 .unwrap()
                 .join(match response_message {
                     ResponseMessage::Text { .. } => "sendMessage",
-                    ResponseMessage::_Photo { .. } => "sendPhoto",
+                    ResponseMessage::Photo { .. } => "sendPhoto",
+                    ResponseMessage::Sticker { .. } => "sendSticker",
+                    ResponseMessage::Video { .. } => "sendVideo",
+                    ResponseMessage::VideoNote { .. } => "sendVideoNote",
+                    ResponseMessage::Voice { .. } => "sendVoice",
+                    ResponseMessage::Audio { .. } => "sendAudio",
+                    ResponseMessage::Document { .. } => "sendDocument",
+                    ResponseMessage::Animation { .. } => "sendAnimation",
                 })
                 .unwrap(),
         )

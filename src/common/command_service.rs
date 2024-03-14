@@ -1,18 +1,20 @@
 use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
+use rand::Rng;
 use sqlx::PgPool;
 use unicase::UniCase;
 
+use crate::common::answer_entity_service::{substrings, triggers};
 use crate::common::command_parser::{
-    find_command, parse_command, Command, CommandContainer, CommandSetting, ControlItem,
-    COMMAND_SETTING_MAP,
+    Command, COMMAND_SETTING_MAP, CommandContainer, CommandSetting, ControlItem, find_command,
+    parse_command,
 };
-use crate::common::db::{ChatId, ChatToMemberId, MemberId};
+use crate::common::db::{ChatId, ChatToMemberId, EntityContentType, MemberId};
 use crate::common::error::ProcessError;
-use crate::common::lexer::{tokens_to_string, Token};
+use crate::common::lexer::{Token, tokens_to_string};
 use crate::common::request::{Message, MessageBody};
-use crate::common::response::{text_message, ResponseMessage};
+use crate::common::response::{BaseBody, ResponseMessage, text_message};
 use crate::common::user_service::{
     morph_answer_chance, pretty_username, random_user_from_chat, set_morph_answer_chance,
     set_substring_answer_chance, substring_answer_chance,
@@ -259,6 +261,102 @@ async fn answer_chance<'a>(
         }),
     }
 }
+
+async fn check<'a>(
+    pool: &PgPool,
+    command_container: &CommandContainer<'a>,
+    chat_db_id: &ChatId,
+    direct_message: &MessageBody,
+) -> Result<ResponseMessage, ProcessError<'a>> {
+    let answer_entities = match command_container.control_item {
+        Some(ControlItem::Trigger) => triggers(pool, command_container.rest, chat_db_id).await,
+        Some(ControlItem::Substring) => substrings(pool, command_container.rest, chat_db_id).await,
+        _ => {
+            return Err(ProcessError::Feedback {
+                message: "Объект редактирования не поддерживается",
+            })
+        }
+    };
+    if answer_entities.is_empty() {
+        Err(ProcessError::Feedback {
+            message: "Ничего не было найдено",
+        })
+    } else {
+        let chat_id = direct_message.base.chat.id;
+        let message_id = direct_message.base.message_id;
+        let random_entity =
+            answer_entities[rand::thread_rng().gen_range(0..answer_entities.len())].clone();
+        // TODO: Move to ResponseMessage::from_answer_entity function
+        match &random_entity.content_type {
+            EntityContentType::Text => Ok(text_message(random_entity.value, chat_id, message_id)),
+            EntityContentType::Voice => Ok(ResponseMessage::Voice {
+                base_body: BaseBody {
+                    chat_id,
+                    reply_to_message_id: Some(message_id),
+                },
+                voice: random_entity.value,
+                caption: random_entity.description,
+            }),
+            EntityContentType::Picture => Ok(ResponseMessage::Photo {
+                base_body: BaseBody {
+                    chat_id,
+                    reply_to_message_id: Some(message_id),
+                },
+                photo: random_entity.value,
+                caption: random_entity.description,
+            }),
+            EntityContentType::Animation => Ok(ResponseMessage::Animation {
+                base_body: BaseBody {
+                    chat_id,
+                    reply_to_message_id: Some(message_id),
+                },
+                animation: random_entity.value,
+                caption: random_entity.description,
+            }),
+            EntityContentType::Video => Ok(ResponseMessage::Video {
+                base_body: BaseBody {
+                    chat_id,
+                    reply_to_message_id: Some(message_id),
+                },
+                video: random_entity.value,
+                caption: random_entity.description,
+            }),
+            EntityContentType::VideoNote => Ok(ResponseMessage::VideoNote {
+                base_body: BaseBody {
+                    chat_id,
+                    reply_to_message_id: Some(message_id),
+                },
+                video_note: random_entity.value,
+            }),
+            EntityContentType::Sticker => {
+                Ok(ResponseMessage::Sticker {
+                    base_body: BaseBody {
+                        chat_id,
+                        reply_to_message_id: Some(message_id),
+                    },
+                    sticker: random_entity.value,
+                })
+            }
+            EntityContentType::Audio => Ok(ResponseMessage::Audio {
+                base_body: BaseBody {
+                    chat_id,
+                    reply_to_message_id: Some(message_id),
+                },
+                audio: random_entity.value,
+                caption: random_entity.description,
+            }),
+            EntityContentType::Document => Ok(ResponseMessage::Document {
+                base_body: BaseBody {
+                    chat_id,
+                    reply_to_message_id: Some(message_id),
+                },
+                document: random_entity.value,
+                caption: random_entity.description,
+            })
+        }
+    }
+}
+
 pub async fn process_command<'a>(
     tokens: &'a Option<Vec<Token<'a>>>,
     message: &'a Message,
@@ -283,7 +381,7 @@ pub async fn process_command<'a>(
             Command::Add => Err(ProcessError::Next),
             Command::Remember => Err(ProcessError::Next),
             Command::Delete => Err(ProcessError::Next),
-            Command::Check => Err(ProcessError::Next),
+            Command::Check => check(pool, &command_container, chat_db_id, message.direct()).await,
             Command::Say => Err(ProcessError::Next),
             Command::Couple => Err(ProcessError::Next),
             Command::Top => Err(ProcessError::Next),
