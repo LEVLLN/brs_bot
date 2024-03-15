@@ -19,3 +19,13 @@ pub async fn substrings<'a>(pool: &PgPool, tokens: &'a [Token<'a>], chat_db_id: 
 pub async fn triggers<'a>(pool: &PgPool, tokens: &'a [Token<'a>], chat_db_id: &ChatId) -> Vec<AnswerEntity> {
     AnswerEntity::find(pool, chat_db_id, &[normalize_text(tokens_to_string(tokens, false))], &EntityReactionType::Trigger).await
 }
+
+
+pub async fn all_keys<'a>(pool: &PgPool, value: &String, chat_db_id: &ChatId, is_media: bool) -> Vec<String> {
+    if is_media {
+        AnswerEntity::find_keys_by_file_unique_id(pool, chat_db_id, value).await
+    }
+    else {
+        AnswerEntity::find_keys_by_value(pool, chat_db_id, value).await
+    }
+}

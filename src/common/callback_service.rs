@@ -4,6 +4,7 @@ use crate::common::error::ProcessError;
 use crate::common::lexer::tokenize;
 use crate::common::request::{ReplyMarkup, ReplyMarkupButton, RequestPayload};
 use crate::common::response::ResponseMessage;
+use log::{info, warn};
 use sqlx::PgPool;
 
 pub async fn process_callback<'a>(
@@ -17,7 +18,10 @@ pub async fn process_callback<'a>(
         return Err(ProcessError::Next);
     };
     match request_payload.any_message().reply_markup() {
-        None => Err(ProcessError::Next),
+        None => {
+            info!("Обработка Callback без reply_markup невозможна");
+            Err(ProcessError::Next)
+        }
         Some(ReplyMarkup { inline_keyboard: x }) => match &x[0][0] {
             ReplyMarkupButton { text, .. } if text == "Roll" => {
                 let tokens = request_payload
@@ -39,10 +43,16 @@ pub async fn process_callback<'a>(
                 .await
                 {
                     Ok(response_message) => Ok(response_message),
-                    Err(_) => Err(ProcessError::Stop),
+                    Err(err) => {
+                        warn!("Ошибка обработки команды в Callback {:?}", err);
+                        Err(ProcessError::Stop)
+                    }
                 }
             }
-            _ => Err(ProcessError::Stop),
+            _ => {
+                info!("Указанный reply_markup не поддерживается");
+                Err(ProcessError::Stop) 
+            },
         },
     }
 }

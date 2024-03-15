@@ -126,7 +126,45 @@ pub mod fixtures {
             },
         }
     }
-
+    
+    pub fn replied_text_message(
+        user: &User,
+        chat: &Chat,
+        text: &str,
+        reply_text: &str,
+    ) -> RequestPayload {
+        RequestPayload::Origin {
+            update_id: 3,
+            message: Message::Replied {
+                direct: MessageBody {
+                    base: MessageBase {
+                        message_id: 2,
+                        from: user.clone(),
+                        chat: chat.clone(),
+                        forward_from: None,
+                        forward_from_chat: None,
+                    },
+                    ext: MessageExt::Text {
+                        text: String::from(text),
+                    },
+                },
+                reply: Box::new(MessageBody {
+                    base: MessageBase {
+                        message_id: 1,
+                        from: user.clone(),
+                        chat: chat.clone(),
+                        forward_from: None,
+                        forward_from_chat: None,
+                    },
+                    ext: MessageExt::Text {
+                        text: reply_text.to_string(),
+                    },
+                }),
+                reply_markup: None,
+            },
+        }
+    }
+    
     pub fn roll_callback_message(user: &User, chat: &Chat, reply_text: &str) -> RequestPayload {
         RequestPayload::Callback {
             update_id: 4,

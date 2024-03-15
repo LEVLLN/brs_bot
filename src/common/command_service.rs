@@ -5,7 +5,7 @@ use rand::Rng;
 use sqlx::PgPool;
 use unicase::UniCase;
 
-use crate::common::answer_entity_service::{substrings, triggers};
+use crate::common::answer_entity_service::{all_keys, substrings, triggers};
 use crate::common::command_parser::{
     find_command, parse_command, Command, CommandContainer, CommandSetting, ControlItem,
     COMMAND_SETTING_MAP,
@@ -13,7 +13,7 @@ use crate::common::command_parser::{
 use crate::common::db::{ChatId, ChatToMemberId, EntityContentType, MemberId};
 use crate::common::error::ProcessError;
 use crate::common::lexer::{tokens_to_string, Token};
-use crate::common::request::Message;
+use crate::common::request::{Message, MessageBody, MessageExt};
 use crate::common::response::{
     roll_reply_markup, text_message, text_message_with_roll, BaseBody, ResponseMessage,
 };
@@ -359,6 +359,46 @@ async fn check<'a>(
     }
 }
 
+async fn show<'a>(
+    pool: &PgPool,
+    chat_db_id: &ChatId,
+    reply_message_body: &MessageBody,
+    chat_id: i64,
+    message_id: i64,
+) -> Result<ResponseMessage, ProcessError<'a>> {
+    let found_keys = match &reply_message_body.ext {
+        MessageExt::Photo { photo, .. } => {
+            all_keys(pool, &photo[0].file_unique_id, chat_db_id, false).await
+        }
+        MessageExt::Text { text } => all_keys(pool, text, chat_db_id, false).await,
+        MessageExt::Audio { audio: content, .. }
+        | MessageExt::Document {
+            document: content, ..
+        }
+        | MessageExt::Animation {
+            animation: content, ..
+        }
+        | MessageExt::Sticker { sticker: content }
+        | MessageExt::Video { video: content, .. }
+        | MessageExt::Voice { voice: content, .. }
+        | MessageExt::VideoNote {
+            video_note: content,
+            ..
+        } => all_keys(pool, &content.file_unique_id, chat_db_id, false).await,
+    };
+    if found_keys.is_empty() {
+        return Err(ProcessError::Feedback {message: "Ключей не найдено"})
+    };
+    Ok(text_message(found_keys.iter()
+        .fold(String::new(), |s, k| {
+            if s.is_empty() {
+                s + k
+            } else {
+                s + "," + " " + k
+            }
+        }), chat_id, message_id))
+}
+
 pub async fn process_command<'a>(
     tokens: &'a Option<Vec<Token<'a>>>,
     message: &'a Message,
@@ -386,7 +426,16 @@ pub async fn process_command<'a>(
             Command::AnswerChance => {
                 answer_chance(pool, &command_container, chat_db_id, chat_id, message_id).await
             }
-            Command::Show => Err(ProcessError::Next),
+            Command::Show => {
+                show(
+                    pool,
+                    chat_db_id,
+                    message.reply().unwrap(),
+                    chat_id,
+                    message_id,
+                )
+                .await
+            }
             Command::Add => Err(ProcessError::Next),
             Command::Remember => Err(ProcessError::Next),
             Command::Delete => Err(ProcessError::Next),

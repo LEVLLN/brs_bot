@@ -10,8 +10,8 @@ mod tests {
     use crate::common::message_service::{handle_processor, Processor};
     use crate::common::response::ResponseMessage;
     use crate::tests::helpers::fixtures::{
-        db_existed_chat_member, default_origin_direct_text_message, request_existed_chat_user,
-        roll_callback_message,
+        db_existed_chat_member, default_origin_direct_text_message, replied_text_message,
+        request_existed_chat_user, roll_callback_message,
     };
 
     async fn call_command_direct(pool: &PgPool, input_text: &str) -> ResponseMessage {
@@ -54,7 +54,7 @@ mod tests {
             actual: json!(result),
             expected: json!({
                 "reply_to_message_id": 2,
-                "text": "FirstName LastName динозавр", 
+                "text": "FirstName LastName динозавр",
                 "reply_markup": {"inline_keyboard": [[{"text": "Roll", "callback_data": ""}]]}
             })
         );
@@ -270,5 +270,99 @@ mod tests {
         {
             assert_eq!(text, "trigger_text_value");
         }
+    }
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(
+            path = "sqlx_fixtures",
+            scripts("default_chat", "default_user", "text_substring")
+        )
+    )]
+    async fn test_show_keys_failure(pool: PgPool) {
+        let (user, chat) = request_existed_chat_user().await;
+        let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(&pool).await;
+        let request_payload = default_origin_direct_text_message(&user, &chat, "хлеб покажи ключи");
+        let tokens = &Some(tokenize("хлеб покажи ключи"));
+        if let ProcessError::Feedback { message: msg } = handle_processor(
+            &Processor::Command,
+            tokens,
+            &request_payload,
+            &pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+        .await
+        .unwrap_err()
+        {
+            assert_eq!(msg, "Необходимо выбрать сообщение в ответ");
+        } else {
+            panic!("Assertion error");
+        }
+    }
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(
+            path = "sqlx_fixtures",
+            scripts("default_chat", "default_user", "text_substring")
+        )
+    )]
+    async fn test_show_keys_not_found(pool: PgPool) {
+        let (user, chat) = request_existed_chat_user().await;
+        let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(&pool).await;
+        let request_payload =
+            replied_text_message(&user, &chat, "хлеб покажи ключи", "wrong_value");
+        let tokens = &Some(tokenize("хлеб покажи ключи"));
+        if let ProcessError::Feedback { message: msg } = handle_processor(
+            &Processor::Command,
+            tokens,
+            &request_payload,
+            &pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+        .await
+        .unwrap_err()
+        {
+            assert_eq!(msg, "Ключей не найдено");
+        } else {
+            panic!("Assertion error");
+        }
+    }
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(
+            path = "sqlx_fixtures",
+            scripts("default_chat", "default_user", "text_substring")
+        )
+    )]
+    async fn test_show_keys(pool: PgPool) {
+        let (user, chat) = request_existed_chat_user().await;
+        let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(&pool).await;
+        let request_payload =
+            replied_text_message(&user, &chat, "хлеб покажи ключи", "substring_text_value");
+        let tokens = &Some(tokenize("хлеб покажи ключи"));
+        let result = handle_processor(
+            &Processor::Command,
+            tokens,
+            &request_payload,
+            &pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+        .await
+        .unwrap();
+        assert_json_include!(
+            actual: json!(result),
+            expected: json!({
+                "reply_to_message_id": 2,
+                "text": "substring_key",
+            })
+        );
     }
 }

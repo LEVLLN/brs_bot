@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{Error, FromRow, PgPool, Pool, Postgres, query, query_as, Row};
+use sqlx::{query, query_as, Error, FromRow, PgPool, Pool, Postgres, Row};
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
 #[sqlx(transparent)]
@@ -306,5 +306,37 @@ impl AnswerEntity {
         .fetch_all(pool)
         .await
         .unwrap_or_default()
+    }
+
+    pub async fn find_keys_by_value(
+        pool: &Pool<Postgres>,
+        chat_id: &ChatId,
+        value: &String,
+    ) -> Vec<String> {
+        query("SELECT key FROM answer_entities WHERE value = $1 AND chat_id = $2")
+            .bind(value)
+            .bind(chat_id)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default()
+            .iter()
+            .map(|x| x.get::<String, _>("key"))
+            .collect::<Vec<String>>()
+    }
+
+    pub async fn find_keys_by_file_unique_id(
+        pool: &Pool<Postgres>,
+        chat_id: &ChatId,
+        file_unique_id: &String,
+    ) -> Vec<String> {
+        query("SELECT key FROM answer_entities WHERE file_unique_id = $1 AND chat_id = $2")
+            .bind(file_unique_id)
+            .bind(chat_id)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default()
+            .iter()
+            .map(|x| x.get::<String, _>("key"))
+            .collect::<Vec<String>>()
     }
 }
