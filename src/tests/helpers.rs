@@ -3,7 +3,7 @@ pub mod functions {
     use axum::body::Body;
     use axum::response::Response;
     use http::Request;
-    use sqlx::{PgPool, Pool, Postgres, query_as};
+    use sqlx::{query_as, PgPool, Pool, Postgres};
     use tower::ServiceExt;
 
     use crate::common::request::RequestPayload;
@@ -43,7 +43,8 @@ pub mod fixtures {
 
     use crate::common::db::{ChatId, ChatToMemberId, Member, MemberId};
     use crate::common::request::{
-        Chat, Message, MessageBase, MessageBody, MessageExt, RequestPayload, User,
+        CallbackQuery, Chat, Message, MessageBase, MessageBody, MessageExt, ReplyMarkup,
+        ReplyMarkupButton, RequestPayload, User,
     };
     use crate::common::user_service::bind_user_to_chat;
     use crate::tests::helpers::functions::chat_by_chat_id;
@@ -61,6 +62,15 @@ pub mod fixtures {
         }
     }
 
+    pub fn bot_user() -> User {
+        User {
+            id: 1991322963,
+            is_bot: true,
+            first_name: Some(String::from("Хлебушек")),
+            username: Some(String::from("bread_hleb_bot")),
+            last_name: None,
+        }
+    }
     pub fn default_chat() -> Chat {
         Chat {
             id: -333322221111,
@@ -91,7 +101,7 @@ pub mod fixtures {
         .await
         .unwrap()
     }
-    
+
     pub fn default_origin_direct_text_message(
         user: &User,
         chat: &Chat,
@@ -113,6 +123,48 @@ pub mod fixtures {
                     },
                 },
                 reply_markup: None,
+            },
+        }
+    }
+
+    pub fn roll_callback_message(user: &User, chat: &Chat, reply_text: &str) -> RequestPayload {
+        RequestPayload::Callback {
+            update_id: 4,
+            callback_query: CallbackQuery {
+                id: "1".to_string(),
+                from: user.clone(),
+                message: Message::Replied {
+                    direct: MessageBody {
+                        base: MessageBase {
+                            message_id: 3,
+                            from: bot_user(),
+                            chat: chat.clone(),
+                            forward_from: None,
+                            forward_from_chat: None,
+                        },
+                        ext: MessageExt::Text {
+                            text: "Some Text".to_string(),
+                        },
+                    },
+                    reply: Box::new(MessageBody {
+                        base: MessageBase {
+                            message_id: 2,
+                            from: user.clone(),
+                            chat: chat.clone(),
+                            forward_from: None,
+                            forward_from_chat: None,
+                        },
+                        ext: MessageExt::Text {
+                            text: reply_text.to_string(),
+                        },
+                    }),
+                    reply_markup: Some(ReplyMarkup {
+                        inline_keyboard: vec![vec![ReplyMarkupButton {
+                            text: "Roll".to_string(),
+                            callback_data: "".to_string(),
+                        }]],
+                    }),
+                },
             },
         }
     }

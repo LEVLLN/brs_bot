@@ -11,6 +11,7 @@ mod tests {
     use crate::common::response::ResponseMessage;
     use crate::tests::helpers::fixtures::{
         db_existed_chat_member, default_origin_direct_text_message, request_existed_chat_user,
+        roll_callback_message,
     };
 
     async fn call_command_direct(pool: &PgPool, input_text: &str) -> ResponseMessage {
@@ -27,6 +28,35 @@ mod tests {
         )
         .await
         .unwrap()
+    }
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(path = "sqlx_fixtures", scripts("default_chat", "default_user"))
+    )]
+    async fn test_callback(pool: PgPool) {
+        let (user, chat) = request_existed_chat_user().await;
+        let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(&pool).await;
+        let request_payload = roll_callback_message(&user, &chat, "хлеб кто динозавр");
+        let tokens = &Some(tokenize("Some answer in previous command"));
+        let result = handle_processor(
+            &Processor::Callback,
+            tokens,
+            &request_payload,
+            &pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+        .await
+        .unwrap();
+        assert_json_include!(
+            actual: json!(result),
+            expected: json!({
+                "text": "FirstName LastName динозавр", 
+                "reply_markup": {"inline_keyboard": [[{"text": "Roll", "callback_data": ""}]]}
+            })
+        );
     }
 
     #[sqlx::test(
@@ -227,11 +257,11 @@ mod tests {
     }
 
     #[sqlx::test(
-    migrations = "./migrations",
-    fixtures(
-    path = "sqlx_fixtures",
-    scripts("default_chat", "default_user", "text_trigger")
-    )
+        migrations = "./migrations",
+        fixtures(
+            path = "sqlx_fixtures",
+            scripts("default_chat", "default_user", "text_trigger")
+        )
     )]
     async fn test_show_text_trigger(pool: PgPool) {
         if let ResponseMessage::Text { text, .. } =

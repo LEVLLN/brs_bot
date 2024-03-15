@@ -146,9 +146,9 @@ impl Message {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct CallbackQuery {
-    id: String,
-    from: User,
-    message: Message,
+    pub id: String,
+    pub from: User,
+    pub message: Message,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]

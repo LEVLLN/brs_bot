@@ -14,7 +14,7 @@ use crate::common::db::{ChatId, ChatToMemberId, EntityContentType, MemberId};
 use crate::common::error::ProcessError;
 use crate::common::lexer::{Token, tokens_to_string};
 use crate::common::request::{Message, MessageBody};
-use crate::common::response::{BaseBody, ResponseMessage, text_message};
+use crate::common::response::{BaseBody, ResponseMessage, roll_reply_markup, text_message, text_message_with_roll};
 use crate::common::user_service::{
     morph_answer_chance, pretty_username, random_user_from_chat, set_morph_answer_chance,
     set_substring_answer_chance, substring_answer_chance,
@@ -184,7 +184,7 @@ async fn who<'a>(
     chat_db_id: &ChatId,
     direct_message: &MessageBody,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
-    Ok(text_message(
+    Ok(text_message_with_roll(
         match (
             tokens_to_string(command_container.rest, true),
             WHO_FORMS
@@ -288,11 +288,16 @@ async fn check<'a>(
             answer_entities[rand::thread_rng().gen_range(0..answer_entities.len())].clone();
         // TODO: Move to ResponseMessage::from_answer_entity function
         match &random_entity.content_type {
-            EntityContentType::Text => Ok(text_message(random_entity.value, chat_id, message_id)),
+            EntityContentType::Text => Ok(text_message_with_roll(
+                random_entity.value,
+                chat_id,
+                message_id,
+            )),
             EntityContentType::Voice => Ok(ResponseMessage::Voice {
                 base_body: BaseBody {
                     chat_id,
                     reply_to_message_id: Some(message_id),
+                    reply_markup: roll_reply_markup(),
                 },
                 voice: random_entity.value,
                 caption: random_entity.description,
@@ -301,6 +306,7 @@ async fn check<'a>(
                 base_body: BaseBody {
                     chat_id,
                     reply_to_message_id: Some(message_id),
+                    reply_markup: roll_reply_markup(),
                 },
                 photo: random_entity.value,
                 caption: random_entity.description,
@@ -309,6 +315,7 @@ async fn check<'a>(
                 base_body: BaseBody {
                     chat_id,
                     reply_to_message_id: Some(message_id),
+                    reply_markup: roll_reply_markup(),
                 },
                 animation: random_entity.value,
                 caption: random_entity.description,
@@ -317,6 +324,7 @@ async fn check<'a>(
                 base_body: BaseBody {
                     chat_id,
                     reply_to_message_id: Some(message_id),
+                    reply_markup: roll_reply_markup(),
                 },
                 video: random_entity.value,
                 caption: random_entity.description,
@@ -325,22 +333,23 @@ async fn check<'a>(
                 base_body: BaseBody {
                     chat_id,
                     reply_to_message_id: Some(message_id),
+                    reply_markup: roll_reply_markup(),
                 },
                 video_note: random_entity.value,
             }),
-            EntityContentType::Sticker => {
-                Ok(ResponseMessage::Sticker {
-                    base_body: BaseBody {
-                        chat_id,
-                        reply_to_message_id: Some(message_id),
-                    },
-                    sticker: random_entity.value,
-                })
-            }
+            EntityContentType::Sticker => Ok(ResponseMessage::Sticker {
+                base_body: BaseBody {
+                    chat_id,
+                    reply_to_message_id: Some(message_id),
+                    reply_markup: roll_reply_markup(),
+                },
+                sticker: random_entity.value,
+            }),
             EntityContentType::Audio => Ok(ResponseMessage::Audio {
                 base_body: BaseBody {
                     chat_id,
                     reply_to_message_id: Some(message_id),
+                    reply_markup: roll_reply_markup(),
                 },
                 audio: random_entity.value,
                 caption: random_entity.description,
@@ -349,10 +358,11 @@ async fn check<'a>(
                 base_body: BaseBody {
                     chat_id,
                     reply_to_message_id: Some(message_id),
+                    reply_markup: roll_reply_markup(),
                 },
                 document: random_entity.value,
                 caption: random_entity.description,
-            })
+            }),
         }
     }
 }
@@ -367,8 +377,8 @@ pub async fn process_command<'a>(
 ) -> Result<ResponseMessage, ProcessError<'a>> {
     let tokens = match tokens {
         None => return Err(ProcessError::Next),
-        Some(x) if x.is_empty() => return Err(ProcessError::Next),
-        Some(x) => x,
+        Some(_tokens) if _tokens.is_empty() => return Err(ProcessError::Next),
+        Some(_tokens) => _tokens,
     };
     match parse_command(tokens, message.reply().is_some()) {
         Ok(command_container) => match &command_container.command {

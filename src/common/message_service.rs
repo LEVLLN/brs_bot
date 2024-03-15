@@ -126,7 +126,6 @@ pub async fn process_message<'a>(pool: &PgPool, request_payload: &RequestPayload
                         "User error, sends feedback: {:?} for {:?}",
                         message, chat_db_id
                     );
-
                     send_message(
                         &text_message(
                             message.to_string(),
