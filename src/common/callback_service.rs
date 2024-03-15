@@ -34,6 +34,7 @@ pub async fn process_callback<'a>(
                     member_db_id,
                     chat_db_id,
                     chat_to_member_db_id,
+                    true,
                 )
                 .await
                 {

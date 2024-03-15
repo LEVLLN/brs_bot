@@ -7,14 +7,16 @@ use unicase::UniCase;
 
 use crate::common::answer_entity_service::{substrings, triggers};
 use crate::common::command_parser::{
-    Command, COMMAND_SETTING_MAP, CommandContainer, CommandSetting, ControlItem, find_command,
-    parse_command,
+    find_command, parse_command, Command, CommandContainer, CommandSetting, ControlItem,
+    COMMAND_SETTING_MAP,
 };
 use crate::common::db::{ChatId, ChatToMemberId, EntityContentType, MemberId};
 use crate::common::error::ProcessError;
-use crate::common::lexer::{Token, tokens_to_string};
-use crate::common::request::{Message, MessageBody};
-use crate::common::response::{BaseBody, ResponseMessage, roll_reply_markup, text_message, text_message_with_roll};
+use crate::common::lexer::{tokens_to_string, Token};
+use crate::common::request::Message;
+use crate::common::response::{
+    roll_reply_markup, text_message, text_message_with_roll, BaseBody, ResponseMessage,
+};
 use crate::common::user_service::{
     morph_answer_chance, pretty_username, random_user_from_chat, set_morph_answer_chance,
     set_substring_answer_chance, substring_answer_chance,
@@ -139,7 +141,8 @@ static COMMANDS_HELP_LIST: Lazy<String> = Lazy::new(|| {
 
 fn help<'a>(
     command_container: &CommandContainer<'a>,
-    direct_message: &MessageBody,
+    chat_id: i64,
+    message_id: i64,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
     Ok(text_message(
         match command_container.rest {
@@ -154,8 +157,8 @@ fn help<'a>(
                 Some((command, _, _)) => COMMAND_HELP_MAP.get(command).unwrap().to_owned(),
             },
         },
-        direct_message.base.chat.id,
-        direct_message.base.message_id,
+        chat_id,
+        message_id,
     ))
 }
 
@@ -182,7 +185,8 @@ async fn who<'a>(
     pool: &PgPool,
     command_container: &CommandContainer<'a>,
     chat_db_id: &ChatId,
-    direct_message: &MessageBody,
+    chat_id: i64,
+    message_id: i64,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
     Ok(text_message_with_roll(
         match (
@@ -210,8 +214,8 @@ async fn who<'a>(
             }
             (_, _, username) => username,
         },
-        direct_message.base.chat.id,
-        direct_message.base.message_id,
+        chat_id,
+        message_id,
     ))
 }
 
@@ -219,7 +223,8 @@ async fn answer_chance<'a>(
     pool: &PgPool,
     command_container: &CommandContainer<'a>,
     chat_db_id: &ChatId,
-    direct_message: &MessageBody,
+    chat_id: i64,
+    message_id: i64,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
     let control_item = command_container.control_item.unwrap();
     match command_container.rest {
@@ -230,13 +235,7 @@ async fn answer_chance<'a>(
                 message: "Объект редактирования не поддерживается",
             }),
         }
-        .map(|x| {
-            Ok(text_message(
-                x.to_string(),
-                direct_message.base.chat.id,
-                direct_message.base.message_id,
-            ))
-        })?,
+        .map(|x| Ok(text_message(x.to_string(), chat_id, message_id)))?,
         [Token::Word(_answer_chance)] => match _answer_chance.parse::<i16>() {
             Ok(x) if (0..=100).contains(&x) => match control_item {
                 ControlItem::Substring => set_substring_answer_chance(pool, chat_db_id, x).await,
@@ -245,13 +244,7 @@ async fn answer_chance<'a>(
                     message: "Объект редактирования не поддерживается",
                 }),
             }
-            .map(|_| {
-                Ok(text_message(
-                    "Сделано".to_string(),
-                    direct_message.base.chat.id,
-                    direct_message.base.message_id,
-                ))
-            })?,
+            .map(|_| Ok(text_message("Сделано".to_string(), chat_id, message_id)))?,
             _ => Err(ProcessError::Feedback {
                 message: "Указано неверное значение. Должно быть целое число от 0 до 100",
             }),
@@ -266,7 +259,8 @@ async fn check<'a>(
     pool: &PgPool,
     command_container: &CommandContainer<'a>,
     chat_db_id: &ChatId,
-    direct_message: &MessageBody,
+    chat_id: i64,
+    message_id: i64,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
     let answer_entities = match command_container.control_item {
         Some(ControlItem::Trigger) => triggers(pool, command_container.rest, chat_db_id).await,
@@ -282,8 +276,6 @@ async fn check<'a>(
             message: "Ничего не было найдено",
         })
     } else {
-        let chat_id = direct_message.base.chat.id;
-        let message_id = direct_message.base.message_id;
         let random_entity =
             answer_entities[rand::thread_rng().gen_range(0..answer_entities.len())].clone();
         // TODO: Move to ResponseMessage::from_answer_entity function
@@ -374,24 +366,33 @@ pub async fn process_command<'a>(
     _member_db_id: &MemberId,
     chat_db_id: &ChatId,
     _chat_to_member_db_id: &ChatToMemberId,
+    is_roll: bool,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
     let tokens = match tokens {
         None => return Err(ProcessError::Next),
         Some(_tokens) if _tokens.is_empty() => return Err(ProcessError::Next),
         Some(_tokens) => _tokens,
     };
+    let chat_id = message.direct().base.chat.id;
+    let message_id = if is_roll {
+        message.reply().unwrap().base.message_id
+    } else {
+        message.direct().base.message_id
+    };
     match parse_command(tokens, message.reply().is_some()) {
         Ok(command_container) => match &command_container.command {
-            Command::Help => help(&command_container, message.direct()),
-            Command::Who => who(pool, &command_container, chat_db_id, message.direct()).await,
+            Command::Help => help(&command_container, chat_id, message_id),
+            Command::Who => who(pool, &command_container, chat_db_id, chat_id, message_id).await,
             Command::AnswerChance => {
-                answer_chance(pool, &command_container, chat_db_id, message.direct()).await
+                answer_chance(pool, &command_container, chat_db_id, chat_id, message_id).await
             }
             Command::Show => Err(ProcessError::Next),
             Command::Add => Err(ProcessError::Next),
             Command::Remember => Err(ProcessError::Next),
             Command::Delete => Err(ProcessError::Next),
-            Command::Check => check(pool, &command_container, chat_db_id, message.direct()).await,
+            Command::Check => {
+                check(pool, &command_container, chat_db_id, chat_id, message_id).await
+            }
             Command::Say => Err(ProcessError::Next),
             Command::Couple => Err(ProcessError::Next),
             Command::Top => Err(ProcessError::Next),

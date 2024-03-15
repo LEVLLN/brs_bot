@@ -53,6 +53,7 @@ mod tests {
         assert_json_include!(
             actual: json!(result),
             expected: json!({
+                "reply_to_message_id": 2,
                 "text": "FirstName LastName динозавр", 
                 "reply_markup": {"inline_keyboard": [[{"text": "Roll", "callback_data": ""}]]}
             })

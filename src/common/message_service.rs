@@ -61,6 +61,7 @@ pub async fn handle_processor<'a>(
                 member_db_id,
                 chat_db_id,
                 chat_to_member_db_id,
+                false,
             )
             .await
         }
