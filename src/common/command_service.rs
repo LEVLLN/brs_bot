@@ -11,11 +11,11 @@ use crate::common::command_parser::{
     COMMAND_SETTING_MAP,
 };
 use crate::common::db::{
-    AnswerEntity, ChatId, ChatToMemberId, EntityContentType, EntityReactionType, MemberId,
+    AnswerEntity, ChatId, ChatToMemberId, DictionaryEntity, EntityContentType, EntityReactionType,
+    MemberId,
 };
 use crate::common::error::ProcessError;
-use crate::common::lexer::Token::Word;
-use crate::common::lexer::{tokens_to_string, Token};
+use crate::common::lexer::{joined_string, tokens_to_string, Token};
 use crate::common::request::{Message, MessageBody, MessageExt};
 use crate::common::response::{
     roll_reply_markup, text_message, text_message_with_roll, BaseBody, ResponseMessage,
@@ -410,25 +410,6 @@ async fn remember<'a>(
             })
         }
     };
-    let mut keys: Vec<String> = vec![];
-    command_container.rest.iter().for_each(|x| match x {
-        Token::Newline => match keys.len() {
-            0 => keys.push(String::from("\n")),
-            n => keys[n - 1] = String::from(&keys[n - 1]) + "\n",
-        },
-        Token::Punctuation(",") | Token::Symbol(",") => keys.push(String::from("")),
-        Token::Symbol(x) | Word(x) => match keys.len() {
-            0 => keys.push(String::from(*x)),
-            n => {
-                keys[n - 1] =
-                    String::from(&keys[n - 1]) + if keys[n - 1].is_empty() { "" } else { " " } + x
-            }
-        },
-        Token::Punctuation(x) => match keys.len() {
-            0 => keys.push(String::from(*x)),
-            n => keys[n - 1] = String::from(&keys[n - 1]) + x,
-        },
-    });
     let (value, file_unique_id, description) = reply_message_body.ext.content();
     let existed_keys = AnswerEntity::existed_keys(
         pool,
@@ -439,9 +420,10 @@ async fn remember<'a>(
         &entity_reaction_type,
     )
     .await;
-    if AnswerEntity::add_item(
+    if AnswerEntity::bulk_add_items(
         pool,
-        keys.iter()
+        joined_string(command_container.rest)
+            .iter()
             .filter(|x| !x.is_empty() && !existed_keys.contains(x))
             .collect::<Vec<_>>(),
         chat_db_id,
@@ -472,7 +454,7 @@ pub async fn delete_entity<'a>(
         chat_db_id,
         &value,
         &file_unique_id,
-        &EntityContentType::from_message_ext(&reply_message_body.ext)
+        &EntityContentType::from_message_ext(&reply_message_body.ext),
     )
     .await;
     if deleted_keys.is_empty() {
@@ -494,6 +476,32 @@ pub async fn delete_entity<'a>(
             chat_id,
             message_id,
         ))
+    }
+}
+
+async fn add_dictionary_entity<'a>(
+    pool: &PgPool,
+    command_container: &CommandContainer<'a>,
+    chat_db_id: &ChatId,
+    chat_id: i64,
+    message_id: i64,
+) -> Result<ResponseMessage, ProcessError<'a>> {
+    let existed_values = DictionaryEntity::existed_values(pool, chat_db_id).await;
+    if DictionaryEntity::bulk_add_items(
+        pool,
+        joined_string(command_container.rest)
+            .iter()
+            .filter(|x| !x.is_empty() && !existed_values.contains(x))
+            .collect::<Vec<_>>(),
+        chat_db_id,
+    )
+    .await
+    {
+        Ok(text_message("Сделал".to_string(), chat_id, message_id))
+    } else {
+        Err(ProcessError::Feedback {
+            message: "Произошла ошибка добавления",
+        })
     }
 }
 
@@ -558,16 +566,19 @@ pub async fn process_command<'a>(
             Command::Check => {
                 check(pool, &command_container, chat_db_id, chat_id, message_id).await
             }
-            Command::Add => todo!(),
-            Command::Say => todo!(),
-            Command::Couple => todo!(),
+            Command::Add => {
+                add_dictionary_entity(pool, &command_container, chat_db_id, chat_id, message_id)
+                    .await
+            }
+            Command::GenerateNonsense => todo!(),
+            Command::MorphDebug => todo!(),
+            Command::Morph => todo!(),
             Command::Top => todo!(),
+            Command::Couple => todo!(),
             Command::Channel => todo!(),
             Command::RandomChance => todo!(),
             Command::RandomChoose => todo!(),
-            Command::GenerateNonsense => todo!(),
-            Command::Morph => todo!(),
-            Command::MorphDebug => todo!(),
+            Command::Say => todo!(),
             Command::Quote => todo!(),
             Command::Joke => todo!(),
             Command::Advice => todo!(),

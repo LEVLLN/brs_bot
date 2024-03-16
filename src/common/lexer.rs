@@ -41,8 +41,32 @@ pub fn tokens_to_string<'a>(tokens: &'a [Token<'a>], remove_question_mark: bool)
         })
 }
 
-pub fn normalize_text(text: String) -> String{
-    text.to_ascii_lowercase().replace('ё', "е")
+pub fn normalize_text(text: String) -> String {
+    text.to_lowercase().replace('ё', "е")
+}
+
+pub fn joined_string<'a>(tokens: &'a [Token<'a>]) -> Vec<String> {
+    let mut result: Vec<String> = vec![];
+    tokens.iter().for_each(|x| match x {
+        Newline => match result.len() {
+            0 => result.push(String::from("\n")),
+            n => result[n - 1] = String::from(&result[n - 1]) + "\n",
+        },
+        Punctuation(",") | Symbol(",") => result.push(String::from("")),
+        Symbol(x) | Word(x) => match result.len() {
+            0 => result.push(normalize_text(x.to_string())),
+            n => {
+                result[n - 1] = normalize_text(result[n - 1].to_string())
+                    + if result[n - 1].is_empty() { "" } else { " " }
+                    + &normalize_text(x.to_string())
+            }
+        },
+        Punctuation(x) => match result.len() {
+            0 => result.push(String::from(*x)),
+            n => result[n - 1] = String::from(&result[n - 1]) + x,
+        },
+    });
+    result
 }
 
 pub fn tokenize(text: &str) -> Vec<Token> {

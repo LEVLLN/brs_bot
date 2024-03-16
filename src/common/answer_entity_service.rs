@@ -17,7 +17,7 @@ pub async fn substrings<'a>(
             keys.push(normalize_text(word.to_string()))
         }
     });
-    AnswerEntity::find(pool, chat_db_id, &keys, &EntityReactionType::Substring).await
+    AnswerEntity::find_values_by_keys(pool, chat_db_id, &keys, &EntityReactionType::Substring).await
 }
 
 pub async fn triggers<'a>(
@@ -25,7 +25,7 @@ pub async fn triggers<'a>(
     tokens: &'a [Token<'a>],
     chat_db_id: &ChatId,
 ) -> Vec<AnswerEntity> {
-    AnswerEntity::find(
+    AnswerEntity::find_values_by_keys(
         pool,
         chat_db_id,
         &[normalize_text(tokens_to_string(tokens, false))],

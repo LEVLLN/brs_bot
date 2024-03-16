@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::common::db::{AnswerEntity, Chat as ChatDB, ChatId, EntityReactionType, MemberId};
+    use crate::common::db::{AnswerEntity, Chat as ChatDB, ChatId, DictionaryEntity, EntityReactionType, MemberId};
     use crate::common::error::ProcessError;
     use assert_json_diff::assert_json_include;
     use serde_json::json;
@@ -408,10 +408,10 @@ mod tests {
             "аптека вертолет",
             "substring_key",
         ] {
-            let existed_entities = AnswerEntity::find(
+            let existed_entities = AnswerEntity::find_values_by_keys(
                 &pool,
                 &chat_db_id,
-                &["булочка".to_string()],
+                &[_expected.to_string()],
                 &EntityReactionType::Substring,
             )
             .await;
@@ -419,6 +419,7 @@ mod tests {
             assert_eq!(existed_entities[0].value, "substring_text_value")
         }
     }
+    
     #[sqlx::test(
     migrations = "./migrations",
     fixtures(
@@ -438,7 +439,7 @@ mod tests {
         let tokens = &Some(tokenize(
             "хлеб удали",
         ));
-        assert!(!AnswerEntity::find(
+        assert!(!AnswerEntity::find_values_by_keys(
             &pool,
             &chat_db_id,
             &["substring_key".to_string()],
@@ -462,12 +463,49 @@ mod tests {
                 "text": "Был удален контент на ключах: substring_key"
             })
         );
-        assert!(AnswerEntity::find(
+        assert!(AnswerEntity::find_values_by_keys(
             &pool,
             &chat_db_id,
             &["substring_key".to_string()],
             &EntityReactionType::Substring,
         )
             .await.is_empty());
+    }
+
+    #[sqlx::test(
+    migrations = "./migrations",
+    fixtures(
+    path = "sqlx_fixtures",
+    scripts("default_chat", "default_user")
+    )
+    )]
+    async fn test_add_to_dictionary(pool: PgPool) {
+        let (user, chat) = request_existed_chat_user().await;
+        let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(&pool).await;
+        let request_payload = default_origin_direct_text_message(&user, &chat, "хлеб добавь бред булочка, ёлочка, батончик");
+        let tokens = &Some(tokenize(
+            "хлеб добавь бред Булочка, ёлочка, батончик",
+        ));
+        let result = handle_processor(
+            &Processor::Command,
+            tokens,
+            &request_payload,
+            &pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+            .await
+            .unwrap();
+        assert_json_include!(
+            actual: json!(result),
+            expected: json!({
+                "text": "Сделал"
+            })
+        );
+        let existed_values = DictionaryEntity::existed_values(&pool, &chat_db_id).await;
+        for expected in ["булочка", "елочка", "батончик"] {
+            assert!(existed_values.contains(&expected.to_string()))
+        }
     }
 }

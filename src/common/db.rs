@@ -1,12 +1,8 @@
-
 use crate::common::request::MessageExt;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use sqlx::{
-    query, query_as, Error, FromRow, PgPool, Pool, Postgres, QueryBuilder,
-    Row,
-};
+use sqlx::{query, query_as, Error, FromRow, PgPool, Pool, Postgres, QueryBuilder, Row};
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
 #[sqlx(transparent)]
@@ -19,6 +15,10 @@ pub struct MemberId(i32);
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
 #[sqlx(transparent)]
 pub struct AnswerEntityId(i32);
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
+#[sqlx(transparent)]
+pub struct DictionaryEntityId(i32);
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
 pub struct Member {
@@ -97,13 +97,10 @@ pub struct AnswerEntity {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
-pub struct AnswerEntityForCreate {
-    pub content_type: EntityContentType,
-    pub reaction_type: EntityReactionType,
-    pub key: String,
+pub struct DictionaryEntity {
+    pub id: DictionaryEntityId,
+    pub chat_id: ChatId,
     pub value: String,
-    pub description: Option<String>,
-    pub file_unique_id: Option<String>,
 }
 
 impl ChatId {
@@ -317,7 +314,7 @@ impl Chat {
 }
 
 impl AnswerEntity {
-    pub async fn find(
+    pub async fn find_values_by_keys(
         pool: &Pool<Postgres>,
         chat_id: &ChatId,
         keys: &[String],
@@ -393,33 +390,37 @@ impl AnswerEntity {
             .map(|x| x.get::<String, _>("key"))
             .collect::<Vec<String>>()
     }
-    
-    pub async fn delete(pool: &PgPool,
-                        chat_id: &ChatId,
-                        value: &String,
-                        file_unique_id: &Option<String>,
-                        entity_content_type: &EntityContentType) -> Vec<String> {
-        query("DELETE FROM answer_entities \
+
+    pub async fn delete(
+        pool: &PgPool,
+        chat_id: &ChatId,
+        value: &String,
+        file_unique_id: &Option<String>,
+        entity_content_type: &EntityContentType,
+    ) -> Vec<String> {
+        query(
+            "DELETE FROM answer_entities \
         WHERE chat_id = $1 AND (value = $2 OR file_unique_id = $3) \
         AND content_type = $4 \
-        RETURNING key;")
-            .bind(chat_id)
-            .bind(value)
-            .bind(file_unique_id)
-            .bind(entity_content_type)
-            .fetch_all(pool)
-            .await
-            .unwrap_or_default()
-            .iter()
-            .map(|x| x.get::<String, _>("key"))
-            .collect::<Vec<String>>()
+        RETURNING key;",
+        )
+        .bind(chat_id)
+        .bind(value)
+        .bind(file_unique_id)
+        .bind(entity_content_type)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default()
+        .iter()
+        .map(|x| x.get::<String, _>("key"))
+        .collect::<Vec<String>>()
     }
-    
-    pub async fn add_item(
+
+    pub async fn bulk_add_items(
         pool: &PgPool,
         keys: Vec<&String>,
         chat_db_id: &ChatId,
-        content: (&String, &Option<String>,  &Option<String>),
+        content: (&String, &Option<String>, &Option<String>),
         entity_content_type: &EntityContentType,
         entity_reaction_type: &EntityReactionType,
     ) -> bool {
@@ -427,13 +428,46 @@ impl AnswerEntity {
         let mut query_builder: QueryBuilder<Postgres> = QueryBuilder::new(
             "INSERT INTO answer_entities(key, value, file_unique_id, description, content_type, reaction_type, chat_id, is_active, created_at, updated_at) "
         );
-        query_builder.push_values(&keys, |mut d, key| {
-            d.push_bind(key)
+        query_builder.push_values(&keys, |mut binds, key| {
+            binds
+                .push_bind(key)
                 .push_bind(value)
                 .push_bind(file_unique_id)
                 .push_bind(description)
                 .push_bind(entity_content_type)
                 .push_bind(entity_reaction_type)
+                .push_bind(chat_db_id)
+                .push_bind(true)
+                .push_bind(Utc::now())
+                .push_bind(Utc::now());
+        });
+        let insert_query = query_builder.build();
+        insert_query.fetch_all(pool).await.is_ok()
+    }
+}
+
+impl DictionaryEntity {
+    pub async fn existed_values(
+        pool: &PgPool,
+        chat_id: &ChatId,
+    ) -> Vec<String> {
+        query("SELECT value FROM dictionary_entities WHERE chat_id = $1")
+            .bind(chat_id)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default()
+            .iter()
+            .map(|x| x.get::<String, _>("value"))
+            .collect::<Vec<String>>()
+    }
+    
+    pub async fn bulk_add_items(pool: &PgPool, values: Vec<&String>, chat_db_id: &ChatId) -> bool {
+        let mut query_builder: QueryBuilder<Postgres> = QueryBuilder::new(
+            "INSERT INTO dictionary_entities(value, chat_id, is_active, created_at, updated_at) ",
+        );
+        query_builder.push_values(&values, |mut binds, value| {
+            binds
+                .push_bind(value)
                 .push_bind(chat_db_id)
                 .push_bind(true)
                 .push_bind(Utc::now())
