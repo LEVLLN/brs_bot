@@ -86,10 +86,14 @@ impl MessageExt {
         }
     }
 
-    pub fn content(&self) -> Result<&String, (&Content, &Option<String>)> {
+    pub fn content(&self) -> (String, Option<String>, Option<String>) {
         match self {
-            MessageExt::Photo { photo, caption, .. } => Err((&photo[0], caption)),
-            MessageExt::Text { text } => Ok(text),
+            MessageExt::Photo { photo, caption, .. } => (
+                photo[0].file_id.clone(),
+                Some(photo[0].file_unique_id.clone()),
+                caption.clone(),
+            ),
+            MessageExt::Text { text } => (text.clone(), None, None),
             MessageExt::Audio {
                 audio: content,
                 caption,
@@ -114,12 +118,20 @@ impl MessageExt {
                 voice: content,
                 caption,
                 ..
-            } => Err((content, caption)),
+            } => (
+                content.file_id.clone(),
+                Some(content.file_unique_id.clone()),
+                caption.clone(),
+            ),
             MessageExt::Sticker { sticker: content }
             | MessageExt::VideoNote {
                 video_note: content,
                 ..
-            } => Err((content, &None)),
+            } => (
+                content.file_id.clone(),
+                Some(content.file_unique_id.clone()),
+                None,
+            ),
         }
     }
 }

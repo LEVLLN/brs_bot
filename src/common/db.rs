@@ -393,7 +393,28 @@ impl AnswerEntity {
             .map(|x| x.get::<String, _>("key"))
             .collect::<Vec<String>>()
     }
-
+    
+    pub async fn delete(pool: &PgPool,
+                        chat_id: &ChatId,
+                        value: &String,
+                        file_unique_id: &Option<String>,
+                        entity_content_type: &EntityContentType) -> Vec<String> {
+        query("DELETE FROM answer_entities \
+        WHERE chat_id = $1 AND (value = $2 OR file_unique_id = $3) \
+        AND content_type = $4 \
+        RETURNING key;")
+            .bind(chat_id)
+            .bind(value)
+            .bind(file_unique_id)
+            .bind(entity_content_type)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default()
+            .iter()
+            .map(|x| x.get::<String, _>("key"))
+            .collect::<Vec<String>>()
+    }
+    
     pub async fn add_item(
         pool: &PgPool,
         keys: Vec<&String>,

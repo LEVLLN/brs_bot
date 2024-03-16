@@ -419,4 +419,55 @@ mod tests {
             assert_eq!(existed_entities[0].value, "substring_text_value")
         }
     }
+    #[sqlx::test(
+    migrations = "./migrations",
+    fixtures(
+    path = "sqlx_fixtures",
+    scripts("default_chat", "default_user", "text_substring")
+    )
+    )]
+    async fn test_delete(pool: PgPool) {
+        let (user, chat) = request_existed_chat_user().await;
+        let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(&pool).await;
+        let request_payload = replied_text_message(
+            &user,
+            &chat,
+            "хлеб удали подстроку",
+            "substring_text_value",
+        );
+        let tokens = &Some(tokenize(
+            "хлеб удали",
+        ));
+        assert!(!AnswerEntity::find(
+            &pool,
+            &chat_db_id,
+            &["substring_key".to_string()],
+            &EntityReactionType::Substring,
+        )
+            .await.is_empty());
+        let result = handle_processor(
+            &Processor::Command,
+            tokens,
+            &request_payload,
+            &pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+            .await
+            .unwrap();
+        assert_json_include!(
+            actual: json!(result),
+            expected: json!({
+                "text": "Был удален контент на ключах: substring_key"
+            })
+        );
+        assert!(AnswerEntity::find(
+            &pool,
+            &chat_db_id,
+            &["substring_key".to_string()],
+            &EntityReactionType::Substring,
+        )
+            .await.is_empty());
+    }
 }
