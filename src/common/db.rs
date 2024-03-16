@@ -1,5 +1,12 @@
+
+use crate::common::request::MessageExt;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sqlx::{query, query_as, Error, FromRow, PgPool, Pool, Postgres, Row};
+
+use sqlx::{
+    query, query_as, Error, FromRow, PgPool, Pool, Postgres, QueryBuilder,
+    Row,
+};
 
 #[derive(Clone, Serialize, Deserialize, Debug, FromRow, sqlx::Type, PartialEq)]
 #[sqlx(transparent)]
@@ -51,6 +58,22 @@ pub enum EntityContentType {
     Document,
 }
 
+impl EntityContentType {
+    pub fn from_message_ext(message_ext: &MessageExt) -> Self {
+        match message_ext {
+            MessageExt::Photo { .. } => EntityContentType::Picture,
+            MessageExt::Text { .. } => EntityContentType::Text,
+            MessageExt::Video { .. } => EntityContentType::Video,
+            MessageExt::Voice { .. } => EntityContentType::Voice,
+            MessageExt::VideoNote { .. } => EntityContentType::VideoNote,
+            MessageExt::Sticker { .. } => EntityContentType::Sticker,
+            MessageExt::Animation { .. } => EntityContentType::Animation,
+            MessageExt::Document { .. } => EntityContentType::Document,
+            MessageExt::Audio { .. } => EntityContentType::Audio,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type, Deserialize, Serialize)]
 #[sqlx(
     type_name = "answerentitytypesenum",
@@ -65,6 +88,16 @@ pub enum EntityReactionType {
 pub struct AnswerEntity {
     pub id: AnswerEntityId,
     pub chat_id: ChatId,
+    pub content_type: EntityContentType,
+    pub reaction_type: EntityReactionType,
+    pub key: String,
+    pub value: String,
+    pub description: Option<String>,
+    pub file_unique_id: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, FromRow)]
+pub struct AnswerEntityForCreate {
     pub content_type: EntityContentType,
     pub reaction_type: EntityReactionType,
     pub key: String,
@@ -338,5 +371,54 @@ impl AnswerEntity {
             .iter()
             .map(|x| x.get::<String, _>("key"))
             .collect::<Vec<String>>()
+    }
+    pub async fn existed_keys(
+        pool: &PgPool,
+        chat_id: &ChatId,
+        value: &String,
+        file_unique_id: &Option<String>,
+        entity_content_type: &EntityContentType,
+        entity_reaction_type: &EntityReactionType,
+    ) -> Vec<String> {
+        query("SELECT key FROM answer_entities WHERE chat_id = $1 AND (value = $2 OR file_unique_id = $3) AND content_type = $4 AND reaction_type = $5")
+            .bind(chat_id)
+            .bind(value)
+            .bind(file_unique_id)
+            .bind(entity_content_type)
+            .bind(entity_reaction_type)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default()
+            .iter()
+            .map(|x| x.get::<String, _>("key"))
+            .collect::<Vec<String>>()
+    }
+
+    pub async fn add_item(
+        pool: &PgPool,
+        keys: Vec<&String>,
+        chat_db_id: &ChatId,
+        content: (&String, &Option<String>,  &Option<String>),
+        entity_content_type: &EntityContentType,
+        entity_reaction_type: &EntityReactionType,
+    ) -> bool {
+        let (value, file_unique_id, description) = content;
+        let mut query_builder: QueryBuilder<Postgres> = QueryBuilder::new(
+            "INSERT INTO answer_entities(key, value, file_unique_id, description, content_type, reaction_type, chat_id, is_active, created_at, updated_at) "
+        );
+        query_builder.push_values(&keys, |mut d, key| {
+            d.push_bind(key)
+                .push_bind(value)
+                .push_bind(file_unique_id)
+                .push_bind(description)
+                .push_bind(entity_content_type)
+                .push_bind(entity_reaction_type)
+                .push_bind(chat_db_id)
+                .push_bind(true)
+                .push_bind(Utc::now())
+                .push_bind(Utc::now());
+        });
+        let insert_query = query_builder.build();
+        insert_query.fetch_all(pool).await.is_ok()
     }
 }

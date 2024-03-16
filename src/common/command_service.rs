@@ -7,15 +7,19 @@ use unicase::UniCase;
 
 use crate::common::answer_entity_service::{all_keys, substrings, triggers};
 use crate::common::command_parser::{
-    find_command, parse_command, Command, CommandContainer, CommandSetting, ControlItem,
-    COMMAND_SETTING_MAP,
+    Command, COMMAND_SETTING_MAP, CommandContainer, CommandSetting, ControlItem, find_command,
+    parse_command,
 };
-use crate::common::db::{ChatId, ChatToMemberId, EntityContentType, MemberId};
+use crate::common::db::{
+    AnswerEntity, ChatId, ChatToMemberId, EntityContentType,
+    EntityReactionType, MemberId,
+};
 use crate::common::error::ProcessError;
-use crate::common::lexer::{tokens_to_string, Token};
-use crate::common::request::{Message, MessageBody, MessageExt};
+use crate::common::lexer::{Token, tokens_to_string};
+use crate::common::lexer::Token::Word;
+use crate::common::request::{Message, MessageBody};
 use crate::common::response::{
-    roll_reply_markup, text_message, text_message_with_roll, BaseBody, ResponseMessage,
+    BaseBody, ResponseMessage, roll_reply_markup, text_message, text_message_with_roll,
 };
 use crate::common::user_service::{
     morph_answer_chance, pretty_username, random_user_from_chat, set_morph_answer_chance,
@@ -366,37 +370,101 @@ async fn show<'a>(
     chat_id: i64,
     message_id: i64,
 ) -> Result<ResponseMessage, ProcessError<'a>> {
-    let found_keys = match &reply_message_body.ext {
-        MessageExt::Photo { photo, .. } => {
-            all_keys(pool, &photo[0].file_unique_id, chat_db_id, false).await
-        }
-        MessageExt::Text { text } => all_keys(pool, text, chat_db_id, false).await,
-        MessageExt::Audio { audio: content, .. }
-        | MessageExt::Document {
-            document: content, ..
-        }
-        | MessageExt::Animation {
-            animation: content, ..
-        }
-        | MessageExt::Sticker { sticker: content }
-        | MessageExt::Video { video: content, .. }
-        | MessageExt::Voice { voice: content, .. }
-        | MessageExt::VideoNote {
-            video_note: content,
-            ..
-        } => all_keys(pool, &content.file_unique_id, chat_db_id, false).await,
+    let found_keys = match &reply_message_body.ext.content() {
+        Ok(value) => all_keys(pool, value, chat_db_id, false).await,
+        Err((content, _)) => all_keys(pool, &content.file_unique_id, chat_db_id, false).await,
     };
     if found_keys.is_empty() {
-        return Err(ProcessError::Feedback {message: "Ключей не найдено"})
+        return Err(ProcessError::Feedback {
+            message: "Ключей не найдено",
+        });
     };
-    Ok(text_message(found_keys.iter()
-        .fold(String::new(), |s, k| {
+    Ok(text_message(
+        found_keys.iter().fold(String::new(), |s, k| {
             if s.is_empty() {
                 s + k
             } else {
                 s + "," + " " + k
             }
-        }), chat_id, message_id))
+        }),
+        chat_id,
+        message_id,
+    ))
+}
+
+async fn remember<'a>(
+    pool: &PgPool,
+    command_container: &CommandContainer<'a>,
+    chat_db_id: &ChatId,
+    chat_id: i64,
+    message_id: i64,
+    reply_message_body: &MessageBody,
+) -> Result<ResponseMessage, ProcessError<'a>> {
+    let mut keys: Vec<String> = vec![];
+    command_container.rest.iter().for_each(|x| match x {
+        Token::Newline => match keys.len() {
+            0 => keys.push(String::from("\n")),
+            n => keys[n - 1] = String::from(&keys[n - 1]) + "\n",
+        },
+        Token::Punctuation(",") | Token::Symbol(",") => keys.push(String::from("")),
+        Token::Symbol(x) | Word(x) => match keys.len() {
+            0 => keys.push(String::from(*x)),
+            n => {
+                keys[n - 1] =
+                    String::from(&keys[n - 1]) + if keys[n - 1].is_empty() { "" } else { " " } + x
+            }
+        },
+        Token::Punctuation(x) => match keys.len() {
+            0 => keys.push(String::from(*x)),
+            n => keys[n - 1] = String::from(&keys[n - 1]) + x,
+        },
+    });
+    let (value, file_unique_id, description): (String, Option<String>, Option<String>) =
+        match reply_message_body.ext.content() {
+            Ok(value) => (value.clone(), None, None),
+            Err((content, description)) => (
+                content.file_id.clone(),
+                Some(content.file_unique_id.clone()),
+                description.clone(),
+            ),
+        };
+    let entity_content_type = EntityContentType::from_message_ext(&reply_message_body.ext);
+    let entity_reaction_type = match &command_container.control_item {
+        Some(ControlItem::Substring) => EntityReactionType::Substring,
+        Some(ControlItem::Trigger) => EntityReactionType::Trigger,
+        _ => {
+            return Err(ProcessError::Feedback {
+                message: "Тип объекта редактирования не поддерживается",
+            })
+        }
+    };
+    let existed_keys = AnswerEntity::existed_keys(
+        pool,
+        chat_db_id,
+        &value,
+        &file_unique_id,
+        &entity_content_type,
+        &entity_reaction_type,
+    )
+    .await;
+    if AnswerEntity::add_item(
+        pool,
+        keys.iter()
+            .filter(|x| !x.is_empty() && !existed_keys.contains(x))
+            .collect::<Vec<_>>(),
+        chat_db_id,
+        (&value, &file_unique_id, &description),
+        &entity_content_type,
+        &entity_reaction_type,
+    )
+    .await
+    {
+        Ok(text_message("Сделал".to_string(), chat_id, message_id))
+    } else {
+        Err(ProcessError::Feedback {
+            message: "Произошла ошибка добавления",
+        })
+    }
 }
 
 pub async fn process_command<'a>(
@@ -436,24 +504,34 @@ pub async fn process_command<'a>(
                 )
                 .await
             }
-            Command::Add => Err(ProcessError::Next),
-            Command::Remember => Err(ProcessError::Next),
-            Command::Delete => Err(ProcessError::Next),
+            Command::Add => todo!(),
+            Command::Remember => {
+                remember(
+                    pool,
+                    &command_container,
+                    chat_db_id,
+                    chat_id,
+                    message_id,
+                    message.reply().unwrap(),
+                )
+                .await
+            }
+            Command::Delete => todo!(),
             Command::Check => {
                 check(pool, &command_container, chat_db_id, chat_id, message_id).await
             }
-            Command::Say => Err(ProcessError::Next),
-            Command::Couple => Err(ProcessError::Next),
-            Command::Top => Err(ProcessError::Next),
-            Command::Channel => Err(ProcessError::Next),
-            Command::RandomChance => Err(ProcessError::Next),
-            Command::RandomChoose => Err(ProcessError::Next),
-            Command::GenerateNonsense => Err(ProcessError::Next),
-            Command::Morph => Err(ProcessError::Next),
-            Command::MorphDebug => Err(ProcessError::Next),
-            Command::Quote => Err(ProcessError::Next),
-            Command::Joke => Err(ProcessError::Next),
-            Command::Advice => Err(ProcessError::Next),
+            Command::Say => todo!(),
+            Command::Couple => todo!(),
+            Command::Top => todo!(),
+            Command::Channel => todo!(),
+            Command::RandomChance => todo!(),
+            Command::RandomChoose => todo!(),
+            Command::GenerateNonsense => todo!(),
+            Command::Morph => todo!(),
+            Command::MorphDebug => todo!(),
+            Command::Quote => todo!(),
+            Command::Joke => todo!(),
+            Command::Advice => todo!(),
         },
         Err(err) => Err(err),
     }

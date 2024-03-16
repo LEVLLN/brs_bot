@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::common::db::{Chat as ChatDB, ChatId, MemberId};
+    use crate::common::db::{AnswerEntity, Chat as ChatDB, ChatId, EntityReactionType, MemberId};
     use crate::common::error::ProcessError;
     use assert_json_diff::assert_json_include;
     use serde_json::json;
@@ -364,5 +364,59 @@ mod tests {
                 "text": "substring_key",
             })
         );
+    }
+
+    #[sqlx::test(
+        migrations = "./migrations",
+        fixtures(
+            path = "sqlx_fixtures",
+            scripts("default_chat", "default_user", "text_substring")
+        )
+    )]
+    async fn test_remember(pool: PgPool) {
+        let (user, chat) = request_existed_chat_user().await;
+        let (member_db_id, chat_db_id, chat_to_member_db_id) = db_existed_chat_member(&pool).await;
+        let request_payload = replied_text_message(
+            &user,
+            &chat,
+            "хлеб запомни булочка, фонарь-истребитель, аптека вертолет, substring_key",
+            "substring_text_value",
+        );
+        let tokens = &Some(tokenize(
+            "хлеб запомни булочка, фонарь-истребитель, аптека вертолет, substring_key",
+        ));
+        let result = handle_processor(
+            &Processor::Command,
+            tokens,
+            &request_payload,
+            &pool,
+            &member_db_id,
+            &chat_db_id,
+            &chat_to_member_db_id,
+        )
+        .await
+        .unwrap();
+        assert_json_include!(
+            actual: json!(result),
+            expected: json!({
+                "text": "Сделал"
+            })
+        );
+        for _expected in [
+            "булочка",
+            "фонарь-истребитель",
+            "аптека вертолет",
+            "substring_key",
+        ] {
+            let existed_entities = AnswerEntity::find(
+                &pool,
+                &chat_db_id,
+                &["булочка".to_string()],
+                &EntityReactionType::Substring,
+            )
+            .await;
+            assert_eq!(existed_entities.len(), 1);
+            assert_eq!(existed_entities[0].value, "substring_text_value")
+        }
     }
 }

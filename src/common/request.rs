@@ -85,6 +85,43 @@ impl MessageExt {
             VideoNote { .. } | Sticker { .. } => None,
         }
     }
+
+    pub fn content(&self) -> Result<&String, (&Content, &Option<String>)> {
+        match self {
+            MessageExt::Photo { photo, caption, .. } => Err((&photo[0], caption)),
+            MessageExt::Text { text } => Ok(text),
+            MessageExt::Audio {
+                audio: content,
+                caption,
+                ..
+            }
+            | MessageExt::Document {
+                document: content,
+                caption,
+                ..
+            }
+            | MessageExt::Animation {
+                animation: content,
+                caption,
+                ..
+            }
+            | MessageExt::Video {
+                video: content,
+                caption,
+                ..
+            }
+            | MessageExt::Voice {
+                voice: content,
+                caption,
+                ..
+            } => Err((content, caption)),
+            MessageExt::Sticker { sticker: content }
+            | MessageExt::VideoNote {
+                video_note: content,
+                ..
+            } => Err((content, &None)),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -114,12 +151,12 @@ pub enum Message {
         direct: MessageBody,
         #[serde(alias = "reply_to_message")]
         reply: Box<MessageBody>,
-        reply_markup: Option<ReplyMarkup>
+        reply_markup: Option<ReplyMarkup>,
     },
     Common {
         #[serde(flatten)]
         direct: MessageBody,
-        reply_markup: Option<ReplyMarkup>
+        reply_markup: Option<ReplyMarkup>,
     },
 }
 
@@ -136,10 +173,12 @@ impl Message {
             None
         }
     }
-    
+
     pub fn reply_markup(&self) -> &Option<ReplyMarkup> {
         match &self {
-            Message::Common { reply_markup, .. } | Message::Replied { reply_markup, .. } => reply_markup,
+            Message::Common { reply_markup, .. } | Message::Replied { reply_markup, .. } => {
+                reply_markup
+            }
         }
     }
 }
